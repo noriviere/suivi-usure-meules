@@ -1,2 +1,4 @@
-Le classeur Excel n'est pas fourni. Indiquez son chemin dans config\chemin_fichier.txt,
-ou placez-le ici sous le nom ID MET 10 ATELIER MEULAGE SUIVI USURE DES MEULES.xlsx
+Le classeur Excel n'est pas fourni (donnees reelles : jamais sur GitHub).
+Deux facons de l'indiquer :
+  1. scripts\choisir_fichier.bat : il demande le chemin complet et l'ecrit dans config\chemin_fichier.txt ;
+  2. ou placez le classeur ici sous le nom classeur_meules.xlsx (ou seul .xlsx du dossier).
