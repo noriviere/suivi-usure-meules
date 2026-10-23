@@ -1,0 +1,27 @@
+# Environnements et installations locales
+.venv/
+python_portable/
+installeurs/
+__pycache__/
+*.pyc
+archive_*/
+_v9_nouveau/
+installer_v9.bat
+
+# Données réelles : NE JAMAIS les versionner
+*.xlsx
+*.xlsm
+*.xls
+*.sqlite3
+*.sqlite3-journal
+journal_*
+*.log
+data/*
+!data/LISEZMOI.txt
+config/chemin_fichier.txt
+
+# Seul le classeur FICTIF généré par la démo est autorisé (il est recréé à la demande)
+data/demo/
+
+# Script d envoi unique
+publier_github.bat

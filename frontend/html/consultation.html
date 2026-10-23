@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consultation meules</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/consultation.css">
+</head>
+<body>
+<div class="large-page">
+  <div class="entete-page">
+    <h1>Consultation du fichier</h1>
+    <span class="liens"><a class="lien" href="/admin">⚙ Administration</a><a class="lien" href="/">← Retour à la saisie</a></span>
+  </div>
+  <div class="onglets" role="tablist">
+    <button class="onglet" role="tab" data-panneau="donnees" aria-selected="true">Contenu du fichier</button>
+    <button class="onglet" role="tab" data-panneau="stats" aria-selected="false">Statistiques</button>
+    <button class="onglet" role="tab" data-panneau="qualite" aria-selected="false">Contrôle qualité</button>
+  </div>
+
+  <section class="panneau" id="p-donnees"></section>
+  <section class="panneau" id="p-stats" hidden></section>
+  <section class="panneau" id="p-qualite" hidden></section>
+</div>
+
+<script src="/static/js/commun.js"></script>
+<script src="/static/js/consultation.js"></script>
+</body>
+</html>

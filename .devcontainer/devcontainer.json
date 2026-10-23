@@ -1,0 +1,9 @@
+{
+  "name": "Suivi usure meules (démo)",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "postCreateCommand": "pip install fastapi uvicorn openpyxl",
+  "containerEnv": { "MEULES_DEMO": "1" },
+  "forwardPorts": [8000],
+  "portsAttributes": { "8000": { "label": "Application (démo)", "onAutoForward": "openBrowser" } },
+  "postAttachCommand": "python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000"
+}

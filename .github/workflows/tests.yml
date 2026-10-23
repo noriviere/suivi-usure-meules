@@ -1,0 +1,29 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Dépendances (openpyxl suffit pour les tests)
+        run: pip install openpyxl
+      - name: Tests unitaires
+        run: python -m unittest discover -s tests -t . -v
+      - name: La démo en ligne (docs/) est à jour
+        run: |
+          python -m outils.construire_demo_web
+          git diff --exit-code -- docs ':!docs/demo_data.json' || (echo "docs/ n'est pas à jour : lancer python -m outils.construire_demo_web puis commiter." && exit 1)
+      - name: Aucune donnée réelle versionnée
+        run: |
+          if git ls-files | grep -Ei '\.(xlsx|xlsm|sqlite3)$|journal_|chemin_fichier\.txt$'; then echo "Fichier de données versionné !" ; exit 1; fi
