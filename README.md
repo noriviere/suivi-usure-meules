@@ -91,6 +91,10 @@ n'est nécessaire.
 Avec un Python déjà installé : `pip install -r requirements.txt`, puis
 `python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000` depuis ce dossier.
 
+## Mise à jour
+
+Arrêter le serveur, puis lancer `scripts\mettre_a_jour.bat` : il télécharge la dernière version depuis GitHub, sauvegarde l'ancien code dans `archive_AAAAMMJJ_HHMM` et remplace le code. Le dossier `data` (base, journaux, classeur), `config\chemin_fichier.txt` et `config\serveur.txt` ne sont pas touchés. Si `requirements.txt` a changé, relancer `scripts\preparer_python.bat`.
+
 ## Utilisation
 
 | Adresse | Page |
