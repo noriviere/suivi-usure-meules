@@ -21,14 +21,19 @@ DB_PATH = os.path.join(DOSSIER_DONNEES, "application.sqlite3")      # utilisateu
 
 def _chemin_prod():
     """Le trajet du vrai fichier se met dans config/chemin_fichier.txt (une seule ligne,
-    ex. \\\\SERVEUR\\Partage\\suivi_meules .xlsx ou D:\\Meulage\\fichier.xlsx).
-    Sans ce fichier, on cherche le classeur dans le dossier data."""
+    ex. \\\\SERVEUR\\Partage\\suivi_meules.xlsx ou D:\\Meulage\\fichier.xlsx ; scripts\\choisir_fichier.bat l'écrit pour vous).
+    Sans ce fichier, on prend data/classeur_meules.xlsx, ou à défaut le seul autre .xlsx du dossier data."""
     chemin_reglage = os.path.join(DOSSIER_CONFIG, "chemin_fichier.txt")
     if os.path.exists(chemin_reglage):
         with open(chemin_reglage, encoding="utf-8-sig") as fichier:
             ligne = fichier.readline().strip().strip('"')
         if ligne:
             return ligne
+    if not os.path.exists(FICHIER_PROD_PAR_DEFAUT) and os.path.isdir(DOSSIER_DONNEES):
+        autres = [nom for nom in os.listdir(DOSSIER_DONNEES)
+                  if nom.lower().endswith(".xlsx") and not nom.startswith("~$") and nom != os.path.basename(FICHIER_TEST)]
+        if len(autres) == 1:
+            return os.path.join(DOSSIER_DONNEES, autres[0])
     return FICHIER_PROD_PAR_DEFAUT
 
 

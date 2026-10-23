@@ -82,7 +82,7 @@ n'est nécessaire.
 
 1. Copier le dossier (sur le PC serveur ou sur un partage réseau).
 2. Lancer `scripts\preparer_python.bat` une seule fois (Python portable dans le dossier ; doit finir par « Tout est OK »).
-3. Écrire le chemin complet du classeur dans `config\chemin_fichier.txt` (une ligne).
+3. Indiquer le classeur de production : `scripts\choisir_fichier.bat` (demande le chemin complet, y compris un partage réseau, et l'écrit dans `config\chemin_fichier.txt`). Sans cela, l'application prend `data\classeur_meules.xlsx`, ou le seul `.xlsx` du dossier `data`.
 4. Créer le premier compte du back-office : `scripts\creer_utilisateur.bat`.
 5. Sur le PC serveur, lancer `scripts\pare_feu.bat` en administrateur (ouvre le port TCP 8000).
 6. Tester avec `scripts\serveur_prod.bat` puis ouvrir `http://localhost:8000`. Pour un démarrage automatique,
