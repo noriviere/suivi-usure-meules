@@ -46,6 +46,7 @@ def instantane(dossier_temp):
         "donnees": donnees.tableau(),
         "anomalies": anomalies(),
         "perte": perte_annuelle(),
+        "reglages": reglages.etat(),
         "date_construction": __import__("datetime").date.today().isoformat(),
     }
 
@@ -53,7 +54,7 @@ def instantane(dossier_temp):
 def adapter_html(texte, scripts_avant=()):
     texte = texte.replace('href="/static/', 'href="static/').replace('src="/static/', 'src="static/')
     texte = texte.replace('href="/consultation"', 'href="consultation.html"').replace('href="/"', 'href="index.html"')
-    texte = re.sub(r'<a class="lien" href="/admin">.*?</a>', "", texte)          # pas d'administration dans la démo
+    texte = texte.replace('href="/admin"', 'href="admin.html"')
     for script in scripts_avant:                                                    # le faux serveur passe avant tout le reste
         texte = texte.replace("<script ", f'<script src="{script}"></script>\n  <script ', 1)
     return texte
@@ -73,7 +74,16 @@ def construire():
     with open(os.path.join(SORTIE, "demo_data.json"), "w", encoding="utf-8") as fichier:
         fichier.write(donnees_demo_texte)
     shutil.copy(os.path.join(RACINE, "demo_web", "demo-api.js"), os.path.join(SORTIE, "demo-api.js"))
-    for source, cible in (("index.html", "index.html"), ("consultation.html", "consultation.html")):
+    # les liens construits en JavaScript par la page d'administration deviennent relatifs
+    chemin_admin_js = os.path.join(SORTIE, "static", "js", "admin.js")
+    with open(chemin_admin_js, encoding="utf-8") as fichier:
+        code = fichier.read()
+    for ancien, nouveau in (('href: "/consultation"', 'href: "consultation.html"'), ('href: "/"', 'href: "index.html"')):
+        assert ancien in code, ancien
+        code = code.replace(ancien, nouveau)
+    with open(chemin_admin_js, "w", encoding="utf-8") as fichier:
+        fichier.write(code)
+    for source, cible in (("index.html", "index.html"), ("consultation.html", "consultation.html"), ("admin.html", "admin.html")):
         with open(os.path.join(RACINE, "frontend", "html", source), encoding="utf-8") as fichier:
             texte = adapter_html(fichier.read(), scripts_avant=("demo-api.js",))
         with open(os.path.join(SORTIE, cible), "w", encoding="utf-8") as fichier:

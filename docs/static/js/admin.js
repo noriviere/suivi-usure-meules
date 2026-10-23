@@ -35,7 +35,7 @@ async function afficherConnexion() {
     MOI = reponse.corps; afficherAdmin();
   });
   racine.replaceChildren(creerElement("div", { class: "panneau connexion" }, creerElement("h1", { text: "Administration" }), form, aide,
-    creerElement("p", { class: "petit" }, creerElement("a", { class: "lien", href: "/", text: "← Retour à la saisie" }))));
+    creerElement("p", { class: "petit" }, creerElement("a", { class: "lien", href: "index.html", text: "← Retour à la saisie" }))));
   const etat = await fetch("/api/admin/etat").then(reponse => reponse.json()).catch(() => ({}));
   if (etat.compte_demo) aide.textContent = "Démonstration : connectez-vous avec le compte « " + etat.compte_demo.nom + " », mot de passe « " + etat.compte_demo.mot_de_passe + " ».";
   else if (etat.aucun_compte) aide.textContent = "Aucun compte n'existe encore. Lancez scripts\\creer_utilisateur.bat sur le PC serveur pour créer le premier.";
@@ -51,8 +51,8 @@ function afficherAdmin(section = "comptes") {
   const deco = creerElement("button", { type: "button", class: "bouton secondaire", text: "Se déconnecter", onclick: async () => { await api("/api/admin/deconnexion", "POST"); MOI = null; afficherConnexion(); } });
   racine.replaceChildren(
     creerElement("div", { class: "entete-page" }, creerElement("h1", { text: "Administration" }),
-      creerElement("span", { class: "liens" }, creerElement("span", { class: "petit", id: "nom-connecte", text: "Connecté : " + MOI.nom }), creerElement("a", { class: "lien", href: "/consultation", text: "Consultation" }),
-        creerElement("a", { class: "lien", href: "/", text: "Saisie" }), deco)),
+      creerElement("span", { class: "liens" }, creerElement("span", { class: "petit", id: "nom-connecte", text: "Connecté : " + MOI.nom }), creerElement("a", { class: "lien", href: "consultation.html", text: "Consultation" }),
+        creerElement("a", { class: "lien", href: "index.html", text: "Saisie" }), deco)),
     onglets, corps);
   ({ comptes: sectionComptes, regles: sectionRegles, affichage: sectionAffichage }[section])(corps);
 }
@@ -192,13 +192,13 @@ async function sectionRegles(zone) {
         creerElement("tbody", {}, ...etat_regles.historique.map(ligne => creerElement("tr", {}, ...[ligne.date.replace("T", " "), ligne.utilisateur, ligne.regle, ligne.avant, ligne.apres].map(texte => creerElement("td", { text: texte })))))))
     : creerElement("p", { class: "petit", text: "Aucun changement enregistré." });
 
-  zone.replaceChildren(
+  zone.replaceChildren(...[
     creerElement("p", { class: "petit", text: "Chaque interrupteur active ou désactive une vérification ; les valeurs se règlent à droite. Les changements s'appliquent à tous les postes de saisie et sont notés dans l'historique ci-dessous. Les données déjà enregistrées dans Excel ne sont pas modifiées." }),
     etat_regles.modifie ? creerElement("p", { class: "petit", text: "⚙ Des règles ont été modifiées par rapport aux valeurs d'origine (config/champs.json)." }) : null,
     ...blocs,
     creerElement("p", { class: "petit", text: "Non modifiables (protègent le fichier Excel) : champs obligatoires, compteur fin ≥ compteur début, hauteur finale ≤ hauteur initiale, compteur fin 0 remplacé par 1, cohérence format / matière / MA5." }),
     creerElement("div", { class: "actions" }, bEnr, bRaz), msg,
-    creerElement("h3", { text: "Historique des changements", style: "margin-top:24px" }), histo);
+    creerElement("h3", { text: "Historique des changements", style: "margin-top:24px" }), histo].filter(element => element != null));   // replaceChildren(null) écrirait « null » dans la page
 }
 
 /* ---------- section 3 : affichage de la page de saisie ---------- */
