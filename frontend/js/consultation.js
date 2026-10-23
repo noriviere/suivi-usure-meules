@@ -345,7 +345,7 @@ async function construireQualite() {
     const selection = liste_anomalies.filter(anomalie => (!grav || anomalie.gravite === grav) && (!recherche || norm(anomalie.colonne + " " + anomalie.motif + " " + anomalie.valeur).includes(recherche)));
     corps.replaceChildren(...selection.slice(0, limite).map(anomalie => creerElement("tr", {},
       creerElement("td", { class: "n", text: anomalie.ligne }), creerElement("td", { text: anomalie.colonne }), creerElement("td", { text: anomalie.valeur }), creerElement("td", { text: anomalie.motif }),
-      creerElement("td", {}, creerElement("span", { class: "puce-f " + (anomalie.gravite === "probable erreur" ? "bas" : anomalie.gravite === "à vérifier" ? "moyen" : "info"), text: anomalie.gravite })))));
+      creerElement("td", {}, creerElement("span", { class: "puce-f " + (anomalie.gravite === "probable erreur" ? "bas" : anomalie.gravite === "à vérifier" ? "moyen" : "mineur"), text: anomalie.gravite })))));
     compte.textContent = `${selection.length.toLocaleString("fr-FR")} point(s) à contrôler` + (selection.length > limite ? ` — ${limite} affichés` : "");
     tout.hidden = selection.length <= limite;
     racine._liste = selection;

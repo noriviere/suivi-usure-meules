@@ -197,8 +197,41 @@
   }
 
   /* ---------- faux serveur ---------- */
+  /* État de la démo gardé le temps de la session du navigateur (comptes, règles, humour) : rien n'est envoyé nulle part. */
+  let ETAT = null;
+  const lireSession = () => { try { return JSON.parse(sessionStorage.getItem("meules_demo") || "null"); } catch (e) { return null; } };
+  const ecrireSession = () => { try { sessionStorage.setItem("meules_demo", JSON.stringify(ETAT)); } catch (e) { /* stockage indisponible : l'état reste en mémoire */ } };
+  const maintenant = () => new Date().toISOString().slice(0, 19);
+  const copie = x => JSON.parse(JSON.stringify(x));
+
+  /* Reprend la logique de backend/services/reglages.py (_construire) : les règles modifiées changent vraiment les contrôles de la démo. */
+  function appliquerReglages() {
+    const c = D.champs, base = D.champs_base, v = {};
+    for (const r of ETAT.reglages.regles) v[r.id] = { actif: r.actif, p: Object.fromEntries(r.params.map(q => [q.cle, Number(q.valeur)])) };
+    c.regles = Object.fromEntries(ETAT.reglages.regles.map(r => [r.id, r.actif]));
+    c.seuil_demontee_avant_usure_mm = v.non_fini.p.seuil;
+    for (const [id, nom] of [["rotation_max", "Vitesse de rotation"], ["avance_max", "V.Avance"], ["hauteur_init_max", "Hauteur meule initiale, mm"]]) {
+      const champ = c.champs.find(x => x.nom === nom);
+      if (v[id].actif) champ.max = v[id].p.valeur; else delete champ.max;
+    }
+    c.controle_habituel.coefficient = v.hors_habitude.p.coefficient;
+    c.controle_habituel.minimum_cas = v.hors_habitude.p.minimum_cas;
+    c.controle_habituel.champs = v.hors_habitude.actif ? copie(base.controle_habituel.champs) : [];
+    c.champs.find(x => x.nom === "N° de Machine").hors_liste = v.machine_non_prevue.actif ? base.champs.find(x => x.nom === "N° de Machine").hors_liste : "ignorer";
+    c.controle_qualite.coefficient_eloigne = v.controle_eloigne.p.coefficient;
+    c.prix_meule_moyenne_eur = v.prix_meule.p.valeur;
+  }
+
   async function charger() {
-    if (!enChargement) enChargement = vraiFetch("demo_data.json").then(r => r.json()).then(j => { D = j; preparer(); });
+    if (!enChargement) enChargement = vraiFetch("demo_data.json").then(r => r.json()).then(j => {
+      D = j; D.champs_base = copie(D.champs); preparer();
+      ETAT = lireSession() || {
+        humour: true, reglages: copie(D.reglages), reglages_origine: copie(D.reglages), historique: [],
+        comptes: [{ id: 1, nom: "demo", cree_le: maintenant(), derniere_connexion: maintenant() },
+                  { id: 2, nom: "chef.atelier", cree_le: maintenant(), derniere_connexion: null }], suivant: 3, connecte: true,
+      };
+      appliquerReglages();
+    });
     return enChargement;
   }
   const rep = (corps, statut) => new Response(JSON.stringify(corps), { status: statut || 200, headers: { "Content-Type": "application/json" } });
@@ -223,12 +256,86 @@
     return id;
   }
 
+  /* Back-office simulé : tout est accepté, rien n'est durable. */
+  const MOI = () => ({ id: 1, nom: ETAT.comptes[0].nom });
+  const NON_CONNECTE = () => rep({ detail: "Connexion requise." }, 401);
+  function adminReponse(route, methode, corps) {
+    if (route === "etat") return rep({ aucun_compte: false, compte_demo: { nom: "demo", mot_de_passe: "n'importe lequel : aucun mot de passe n'est vérifié dans la démo" } });
+    if (route === "connexion") { ETAT.connecte = true; ecrireSession(); return rep(MOI()); }
+    if (route === "deconnexion") { ETAT.connecte = false; ecrireSession(); return rep({ ok: true }); }
+    if (!ETAT.connecte) return NON_CONNECTE();
+    if (route === "moi") return rep(MOI());
+    if (route === "utilisateurs") {
+      if (methode === "POST") {
+        const nom = String(corps.nom || "").trim();
+        if (!nom) return rep({ detail: "Le nom d'utilisateur est obligatoire." }, 422);
+        if (ETAT.comptes.some(c => c.nom.toLowerCase() === nom.toLowerCase())) return rep({ detail: "Ce nom d'utilisateur existe déjà." }, 422);
+        if (String(corps.mot_de_passe || "").length < 8) return rep({ detail: "Le mot de passe doit contenir au moins 8 caractères." }, 422);
+        ETAT.comptes.push({ id: ETAT.suivant++, nom, cree_le: maintenant(), derniere_connexion: null });
+      }
+      ecrireSession(); return rep(ETAT.comptes);
+    }
+    let m = route.match(/^utilisateurs\/(\d+)(\/mot-de-passe)?$/);
+    if (m) {
+      const id = Number(m[1]);
+      if (methode === "DELETE") {
+        if (id === 1) return rep({ detail: "Vous ne pouvez pas supprimer votre propre compte." }, 422);
+        ETAT.comptes = ETAT.comptes.filter(c => c.id !== id);
+      } else if (String(corps.mot_de_passe || "").length < 8) return rep({ detail: "Le mot de passe doit contenir au moins 8 caractères." }, 422);
+      ecrireSession(); return rep({ ok: true });
+    }
+    if (route === "moi/nom") {
+      const nom = String(corps.nom || "").trim();
+      if (!nom) return rep({ detail: "Le nom d'utilisateur est obligatoire." }, 422);
+      ETAT.comptes[0].nom = nom; ecrireSession(); return rep(MOI());
+    }
+    if (route === "moi/mot-de-passe") {
+      if (String(corps.nouveau || "").length < 8) return rep({ detail: "Le nouveau mot de passe doit contenir au moins 8 caractères." }, 422);
+      return rep({ ok: true });
+    }
+    if (route === "affichage") {
+      if (methode === "POST") {
+        const humour = !!corps.humour;
+        if (humour !== ETAT.humour) ETAT.historique.unshift({ date: maintenant(), utilisateur: ETAT.comptes[0].nom, regle: "Messages humoristiques à l'enregistrement", avant: ETAT.humour ? "oui" : "non", apres: humour ? "oui" : "non" });
+        ETAT.humour = humour; ecrireSession();
+      }
+      return rep({ humour: ETAT.humour });
+    }
+    if (route === "reglages") {
+      if (methode === "POST") {
+        if (corps.reinitialiser) {
+          ETAT.reglages = copie(ETAT.reglages_origine);
+          ETAT.historique.unshift({ date: maintenant(), utilisateur: ETAT.comptes[0].nom, regle: "Toutes les règles", avant: "", apres: "valeurs d'origine" });
+        } else {
+          for (const regle of ETAT.reglages.regles) {
+            const demande = (corps.regles || {})[regle.id]; if (!demande) continue;
+            const avant = (regle.actif ? "actif" : "désactivé") + regle.params.map(q => ` · ${q.cle}=${g(q.valeur)}`).join("");
+            if (regle.switch) regle.actif = !!demande.actif;
+            for (const q of regle.params) {
+              const brut = (demande.params || {})[q.cle]; if (brut === undefined) continue;
+              const x = Number(String(brut).replace(",", "."));
+              if (!isFinite(x) || x < q.min || x > q.max) return rep({ detail: [`${regle.titre} (${q.libelle}) : entre ${g(q.min)} et ${g(q.max)} ${q.unite}`.trim()] }, 422);
+              q.valeur = x;
+            }
+            const apres = (regle.actif ? "actif" : "désactivé") + regle.params.map(q => ` · ${q.cle}=${g(q.valeur)}`).join("");
+            if (avant !== apres) ETAT.historique.unshift({ date: maintenant(), utilisateur: ETAT.comptes[0].nom, regle: regle.titre, avant, apres });
+          }
+        }
+        ETAT.reglages.modifie = JSON.stringify(ETAT.reglages.regles) !== JSON.stringify(ETAT.reglages_origine.regles);
+        appliquerReglages(); ecrireSession();
+      }
+      return rep({ ...ETAT.reglages, historique: ETAT.historique.slice(0, 30) });
+    }
+    return rep({ erreurs: ["Route inconnue"] }, 404);
+  }
+
   window.fetch = async function (url, opts) {
     const u = new URL(typeof url === "string" ? url : url.url, location.href);
     const i = u.pathname.lastIndexOf("/api/");
     if (i < 0) return vraiFetch(url, opts);
     await charger();
     const route = u.pathname.slice(i + 5), corps = (opts && opts.body) ? JSON.parse(opts.body) : {};
+    if (route.startsWith("admin/")) return adminReponse(route.slice(6), ((opts && opts.method) || "GET").toUpperCase(), corps);
     if (route.startsWith("ajout/")) {
       const t = TRAVAUX.get(route.slice(6));
       return t ? rep({ etape: t.etape, fini: t.fini, statut: t.statut, corps: t.corps }) : rep({ erreurs: ["Enregistrement inconnu."] }, 404);
@@ -242,7 +349,7 @@
       case "donnees": return rep(D.donnees);
       case "anomalies": return rep(D.anomalies);
       case "perte": return rep(perte());
-      case "affichage": return rep({ humour: true });
+      case "affichage": return rep({ humour: ETAT.humour });
       case "mediane": return rep(medianeFaces(u.searchParams.get("article"), u.searchParams.get("machine"), u.searchParams.get("matiere")));
       case "habitude": return rep({ message: verifierChamp(corps.nom || "", corps.valeur, corps.article, corps.matiere) });
       case "verifier": { const [, erreurs, avertissements] = traiter(corps); return rep({ erreurs, avertissements }); }
@@ -256,11 +363,15 @@
   };
 
   document.addEventListener("DOMContentLoaded", () => {
-    if (document.getElementById("bandeau-demo")) return;       // la page de saisie a déjà son bandeau
+    const admin = /admin(\.html)?$/.test(location.pathname);
+    if (!admin && document.getElementById("bandeau-demo")) return;       // la page de saisie a déjà son bandeau
     const b = document.createElement("p");
     b.className = "bandeau-test";
     b.style.cssText = "margin:0;border-radius:0;text-align:center;position:sticky;top:0;z-index:50";
-    b.textContent = "DÉMO EN LIGNE : données entièrement inventées. Les saisies sont contrôlées comme en vrai mais ne sont enregistrées nulle part.";
+    b.textContent = admin
+      ? "DÉMO EN LIGNE : dans la vraie version, cette page demande un nom d'utilisateur et un mot de passe (comptes créés sur le PC serveur, mots de passe chiffrés, blocage après 5 échecs). Ici l'accès est libre, rien n'est enregistré durablement et aucun mot de passe n'est vérifié."
+      : "DÉMO EN LIGNE : données entièrement inventées. Les saisies sont contrôlées comme en vrai mais ne sont enregistrées nulle part. ";
+    if (!admin) { const a = document.createElement("a"); a.href = "admin.html"; a.textContent = "⚙ Voir l'administration"; a.style.color = "inherit"; b.append(a); }
     document.body.prepend(b);
   });
 })();

@@ -192,13 +192,13 @@ async function sectionRegles(zone) {
         creerElement("tbody", {}, ...etat_regles.historique.map(ligne => creerElement("tr", {}, ...[ligne.date.replace("T", " "), ligne.utilisateur, ligne.regle, ligne.avant, ligne.apres].map(texte => creerElement("td", { text: texte })))))))
     : creerElement("p", { class: "petit", text: "Aucun changement enregistré." });
 
-  zone.replaceChildren(
+  zone.replaceChildren(...[
     creerElement("p", { class: "petit", text: "Chaque interrupteur active ou désactive une vérification ; les valeurs se règlent à droite. Les changements s'appliquent à tous les postes de saisie et sont notés dans l'historique ci-dessous. Les données déjà enregistrées dans Excel ne sont pas modifiées." }),
     etat_regles.modifie ? creerElement("p", { class: "petit", text: "⚙ Des règles ont été modifiées par rapport aux valeurs d'origine (config/champs.json)." }) : null,
     ...blocs,
     creerElement("p", { class: "petit", text: "Non modifiables (protègent le fichier Excel) : champs obligatoires, compteur fin ≥ compteur début, hauteur finale ≤ hauteur initiale, compteur fin 0 remplacé par 1, cohérence format / matière / MA5." }),
     creerElement("div", { class: "actions" }, bEnr, bRaz), msg,
-    creerElement("h3", { text: "Historique des changements", style: "margin-top:24px" }), histo);
+    creerElement("h3", { text: "Historique des changements", style: "margin-top:24px" }), histo].filter(element => element != null));   // replaceChildren(null) écrirait « null » dans la page
 }
 
 /* ---------- section 3 : affichage de la page de saisie ---------- */
