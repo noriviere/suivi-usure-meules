@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Saisie meules</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <main class="carte">
+    <div class="haut-page">
+      <h1>Saisie de meule</h1>
+      <a class="lien-consultation" href="/consultation">📊 Consulter les données</a>
+    </div>
+    <p class="bandeau-test" id="bandeau-test" hidden>⚠ MODE TEST : les saisies vont dans une copie, pas dans le vrai fichier.</p>
+    <p class="bandeau-test" id="bandeau-demo" hidden>🎬 DÉMONSTRATION : données fictives, rien de réel n'est enregistré.</p>
+    <ol class="etapes" id="etapes"></ol>
+
+    <form id="formulaire" novalidate autocomplete="off">
+      <div id="sections"></div>
+      <div id="messages" aria-live="polite"></div>
+      <div class="barre-action">
+        <p id="manque" class="manque"></p>
+        <button type="submit" id="bouton" class="bouton" disabled>Enregistrer</button>
+      </div>
+    </form>
+  </main>
+  <datalist id="dl-matricules"></datalist>
+  <noscript>Cette page nécessite JavaScript.</noscript>
+
+  <script src="/static/js/chargement.js"></script>
+  <script src="/static/js/saisie.js"></script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+{
+  "seuil_demontee_avant_usure_mm": 2,
+
+  "defaut": {
+    "onglet": "Data défaut",
+    "theme": "Meule cassée ou fissurée",
+    "garder_dans_data": true,
+    "alias_colonnes": {
+      "Matricule monteur": ["Matricule"],
+      "Commentaire": ["Problèmes et causes (expliquer en détails)"]
+    }
+  },
+
+  "prix_meule_moyenne_eur": 150,
+
+  "controle_qualite": {
+    "coefficient_eloigne": 3
+  },
+
+  "controle_habituel": {
+    "champs": ["Pression d'arrosage", "Vitesse de rotation", "V.Avance", "Hauteur meule initiale, mm", "Compteur fin"],
+    "minimum_cas": 20,
+    "coefficient": 1.5
+  },
+
+  "sections": [
+    {
+      "id": "monteur",
+      "numero": 1,
+      "titre": "Fiche du monteur",
+      "sous_titre": "À recopier depuis la fiche papier"
+    },
+    {
+      "id": "demonteur",
+      "numero": 2,
+      "titre": "Démontage",
+      "sous_titre": "À renseigner par le démonteur",
+      "passage": "Fiche du monteur recopiée ✔ — place au démontage"
+    }
+  ],
+
+  "retour": {
+    "question": "Tout s'est-il bien passé ?",
+    "oui": "Oui, rien à signaler",
+    "non": "Non, j'ai une remarque",
+    "question_theme": "Qu'est-ce qui a posé problème ? (plusieurs choix possibles)",
+    "autre": "Autre",
+    "themes": [
+      "Bruit / vibrations",
+      "Meule cassée ou fissurée",
+      "Usure irrégulière",
+      "Mauvaise qualité de coupe",
+      "Problème d'arrosage",
+      "Réglage / machine",
+      "Fiche du monteur incomplète ou illisible",
+      "Autre"
+    ],
+    "aide": [
+      {"question": "Que s'est-il passé ?", "amorce": "Constat : "},
+      {"question": "À quel moment ?", "amorce": "Moment : "},
+      {"question": "Qu'avez-vous fait ensuite ?", "amorce": "Action : "},
+      {"question": "Est-ce déjà arrivé ?", "amorce": "Récurrence : "}
+    ]
+  },
+
+  "champs": [
+    {"nom": "Matricule monteur", "section": "monteur", "type": "matricule", "longueur": 4, "obligatoire": true, "forcer_texte": true,
+     "aide": "Choisissez dans la liste ou saisissez les 4 chiffres"},
+
+    {"nom": "Format", "section": "monteur", "type": "liste", "source": "Formats & matière", "obligatoire": true},
+    {"nom": "Matière", "section": "monteur", "type": "liste", "source": "Formats & matière", "obligatoire": true,
+     "affichage_valeurs": {"I": "Inox", "C": "Carbone"}},
+    {"nom": "Face", "section": "monteur", "type": "liste", "valeurs": ["A", "B"], "obligatoire": true},
+    {"nom": "Code lame", "section": "monteur", "type": "affichage",
+     "aide": "Déduit du format et de la matière (non modifiable)"},
+
+    {"nom": "N° article meule", "libelle": "N° article meule", "section": "monteur", "type": "liste", "source": "Liste Meule", "obligatoire": true, "forcer_texte": true},
+    {"nom": "Lot fournisseur N° FA / Beleg", "libelle": "Lot fournisseur / N° FA / Beleg", "section": "monteur", "type": "texte", "obligatoire": true,
+     "popup": {"titre": "Où trouver ce numéro sur l'étiquette ?", "texte": ["Recopiez le numéro FA / Beleg inscrit sur l'étiquette de la meule."],
+               "images": [{"src": "/static/img/etiquette_FA.svg", "legende": "Étiquette : repère du numéro FA"}, {"src": "/static/img/etiquette_Beleg.svg", "legende": "Étiquette : repère du numéro Beleg"}]}},
+    {"nom": "Date montage", "section": "monteur", "type": "date", "defaut": "aujourdhui", "obligatoire": true,
+     "aide": "Aujourd'hui par défaut, modifiable"},
+
+    {"nom": "N° de Machine", "section": "monteur", "type": "liste", "source": "Formats & matière", "hors_liste": "avertir_et_commentaire", "obligatoire": true,
+     "options": ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"]},
+    {"nom": "MA5", "section": "monteur", "type": "liste", "auto_depuis": "Formats & matière", "obligatoire": true,
+     "popup": {"titre": "MA5, c'est quoi ?", "texte": ["MA5 est une nuance d'inox.", "Certains produits peuvent être MA5 ou non : en cas de doute, allez voir la fiche posée sur les palettes en production."]}},
+
+    {"nom": "Pression d'arrosage", "section": "monteur", "type": "entier", "min": 0, "defaut": 6, "manometre": true, "obligatoire": true},
+    {"nom": "Vitesse de rotation", "section": "monteur", "type": "entier", "min": 0, "max": 50, "unite": "m/s", "obligatoire": true},
+    {"nom": "V.Avance", "libelle": "Vitesse d'avance", "section": "monteur", "type": "entier", "min": 0, "max": 1000, "unite": "mm/min", "obligatoire": true},
+    {"nom": "Hauteur meule initiale, mm", "libelle": "Hauteur initiale de la meule", "section": "monteur", "type": "decimal", "min": 0, "max": 110, "unite": "mm", "obligatoire": true},
+    {"nom": "Compteur début", "libelle": "Compteur machine au montage", "section": "monteur", "type": "entier", "min": 0, "defaut": 0, "obligatoire": true,
+     "popup": {"titre": "Compteur au montage", "texte": ["Normalement, le compteur de la machine est remis à zéro au montage de la meule, donc la valeur est 0.", "S'il n'a pas été remis à zéro, notez la valeur affichée."]}},
+
+    {"nom": "Matricule démonteur", "section": "demonteur", "type": "matricule", "longueur": 4, "obligatoire": true, "forcer_texte": true,
+     "aide": "Choisissez dans la liste ou saisissez les 4 chiffres"},
+    {"nom": "Compteur fin", "libelle": "Compteur machine au démontage", "section": "demonteur", "type": "entier", "min": 0, "obligatoire": true,
+     "popup": {"titre": "Compteur au démontage", "texte": ["Valeur affichée par le compteur de la machine au moment où la meule est démontée."]}},
+    {"nom": "Hauteur meule finale, mm", "libelle": "Hauteur finale de la meule", "section": "demonteur", "type": "decimal", "min": 0, "unite": "mm", "obligatoire": true,
+     "popup": {"titre": "Il faut aller jusqu'à 0 mm", "dynamique": "perte"}},
+    {"nom": "Commentaire", "section": "demonteur", "type": "commentaire", "forcer_texte": true}
+  ]
+}
