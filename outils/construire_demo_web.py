@@ -17,7 +17,7 @@ import tempfile
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
-os.environ["MEULES_DEMO"] = "1"
+os.environ.setdefault("MEULES_DEMO", "1")
 
 from backend import config                                    # noqa: E402
 from backend.services import donnees, listes, reglages       # noqa: E402

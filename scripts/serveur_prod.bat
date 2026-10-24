@@ -4,6 +4,7 @@ rem A mettre dans le dossier Demarrage de Windows (Win+R, taper shell:startup, y
 rem proprietes du raccourci > Executer : Reduite). Il redemarre tout seul si le serveur s'arrete.
 rem Fonctionne aussi si le dossier est sur le reseau (\\serveur\partage\...).
 pushd "%~dp0.."
+set "MEULES_DEMO="
 set "PY=python_portable\python.exe"
 if not exist "%PY%" set "PY=.venv\Scripts\python.exe"
 if not exist "%PY%" set "PY=python"

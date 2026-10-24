@@ -58,7 +58,7 @@ mon-app/
 - Formulaire guidé en deux parties (monteur, démonteur), listes et valeurs déduites du classeur.
 - Contrôles bloquants (limites, cohérence des compteurs et des hauteurs) et avertissements non bloquants
   (valeur inhabituelle, doublon, matricule inconnu, meule ou machine non prévue).
-- Écriture dans Excel avec sauvegarde préalable, formules et mise en forme recopiées.
+- Écriture dans Excel (COM) : formules et mise en forme de la ligne précédente recopiées. Aucune sauvegarde automatique du classeur : prévoir celle du serveur de fichiers.
 - Une meule cassée et non finie est aussi copiée dans l'onglet « Data défaut ».
 
 **Consultation** (lecture seule, sans connexion)
@@ -82,7 +82,7 @@ n'est nécessaire.
 
 1. Copier le dossier (sur le PC serveur ou sur un partage réseau).
 2. Lancer `scripts\preparer_python.bat` une seule fois (Python portable dans le dossier ; doit finir par « Tout est OK »).
-3. Indiquer le classeur de production : `scripts\choisir_fichier.bat` (demande le chemin complet, y compris un partage réseau, et l'écrit dans `config\chemin_fichier.txt`). Sans cela, l'application prend `data\classeur_meules.xlsx`, ou le seul `.xlsx` du dossier `data`.
+3. Indiquer le classeur de production : `scripts\choisir_fichier.bat` (demande le chemin complet, y compris un partage réseau, et l'écrit dans `config\chemin_fichier.txt`). Sans cela, l'application prend `data\classeur_meules.xlsx`, ou à défaut le `.xlsx` le plus récent du dossier `data`.
 4. Créer le premier compte du back-office : `scripts\creer_utilisateur.bat`.
 5. Sur le PC serveur, lancer `scripts\pare_feu.bat` en administrateur (ouvre le port TCP 8000).
 6. Tester avec `scripts\serveur_prod.bat` puis ouvrir `http://localhost:8000`. Pour un démarrage automatique,
@@ -93,7 +93,7 @@ Avec un Python déjà installé : `pip install -r requirements.txt`, puis
 
 ## Mise à jour
 
-Arrêter le serveur, puis lancer `scripts\mettre_a_jour.bat` : il télécharge la dernière version depuis GitHub, sauvegarde l'ancien code dans `archive_AAAAMMJJ_HHMM` et remplace le code. Le dossier `data` (base, journaux, classeur), `config\chemin_fichier.txt` et `config\serveur.txt` ne sont pas touchés. Si `requirements.txt` a changé, relancer `scripts\preparer_python.bat`.
+Arrêter le serveur, puis lancer `scripts\mettre_a_jour.bat` : il télécharge la dernière version depuis GitHub, sauvegarde l'ancien code dans `archive_AAAAMMJJ_HHMM` et remplace le code. Le dossier `data` (base, journaux, classeur), `config\chemin_fichier.txt` et `config\serveur.txt` ne sont pas touchés. Sont remplacés : `backend`, `frontend` (y compris `frontend\img`), `outils`, `tests`, `scripts` (sauf `mettre_a_jour.*`), `config\champs.json` : toute personnalisation locale de ces fichiers est écrasée, mais retrouvable dans l'archive. Si `requirements.txt` a changé, relancer `scripts\preparer_python.bat`.
 
 ## Utilisation
 
@@ -115,7 +115,7 @@ lecture du classeur, contrôle qualité). Ils travaillent sur une base et un cla
 python -m unittest discover -s tests -t . -v
 ```
 
-ou `scripts\tests.bat`. Aucune bibliothèque supplémentaire n'est nécessaire.
+ou `scripts\tests.bat`. Seul `openpyxl` est nécessaire (`pip install openpyxl`) ; le test de la démo en ligne utilise Node.js s'il est présent.
 
 ## Contribuer
 

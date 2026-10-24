@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -24,6 +27,10 @@ jobs:
         run: |
           python -m outils.construire_demo_web
           git diff --exit-code -- docs ':!docs/demo_data.json' || (echo "docs/ n'est pas à jour : lancer python -m outils.construire_demo_web puis commiter." && exit 1)
+          if [ -n "$(git status --porcelain docs | grep -v demo_data.json)" ]; then echo "docs/ contient des fichiers non versionnés : relancer la construction et commiter."; exit 1; fi
       - name: Aucune donnée réelle versionnée
         run: |
-          if git ls-files | grep -Ei '\.(xlsx|xlsm|sqlite3)$|journal_|chemin_fichier\.txt$'; then echo "Fichier de données versionné !" ; exit 1; fi
+          if git ls-files | grep -Ei '\.(xlsx|xlsm|xls|xlsb|sqlite3?|db|csv)$|journal_|chemin_fichier\.txt$'; then echo "Fichier de données versionné !" ; exit 1; fi
+      - name: Aucun identifiant interne dans le code
+        run: |
+          if git grep -nIE "I[D] M[E]T [0-9]" -- . ':!.github'; then echo "Identifiant documentaire interne trouvé." ; exit 1; fi

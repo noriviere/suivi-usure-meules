@@ -19,21 +19,35 @@ CHAMPS_JSON = os.path.join(DOSSIER_CONFIG, "champs.json")
 DB_PATH = os.path.join(DOSSIER_DONNEES, "application.sqlite3")      # utilisateurs, règles métier, historique
 
 
+def _lire_ligne(chemin):
+    """Première ligne d'un petit fichier texte. UTF-8 d'abord ; à défaut, l'encodage de la console Windows
+    (un .bat qui écrit un chemin accentué le fait en cp850) puis cp1252 : le serveur ne doit pas planter au démarrage."""
+    with open(chemin, "rb") as fichier:
+        brut = fichier.readline()
+    for encodage in ("utf-8-sig", "cp850", "cp1252"):
+        try:
+            return brut.decode(encodage).strip().strip('"')
+        except UnicodeDecodeError:
+            continue
+    return brut.decode("utf-8", errors="replace").strip().strip('"')
+
+
 def _chemin_prod():
     """Le trajet du vrai fichier se met dans config/chemin_fichier.txt (une seule ligne,
     ex. \\\\SERVEUR\\Partage\\suivi_meules.xlsx ou D:\\Meulage\\fichier.xlsx ; scripts\\choisir_fichier.bat l'écrit pour vous).
-    Sans ce fichier, on prend data/classeur_meules.xlsx, ou à défaut le seul autre .xlsx du dossier data."""
+    Sans ce fichier, on prend data/classeur_meules.xlsx, ou à défaut le .xlsx le plus récent du dossier data."""
     chemin_reglage = os.path.join(DOSSIER_CONFIG, "chemin_fichier.txt")
     if os.path.exists(chemin_reglage):
-        with open(chemin_reglage, encoding="utf-8-sig") as fichier:
-            ligne = fichier.readline().strip().strip('"')
+        ligne = _lire_ligne(chemin_reglage)
         if ligne:
             return ligne
     if not os.path.exists(FICHIER_PROD_PAR_DEFAUT) and os.path.isdir(DOSSIER_DONNEES):
-        autres = [nom for nom in os.listdir(DOSSIER_DONNEES)
-                  if nom.lower().endswith(".xlsx") and not nom.startswith("~$") and nom != os.path.basename(FICHIER_TEST)]
-        if len(autres) == 1:
-            return os.path.join(DOSSIER_DONNEES, autres[0])
+        # classeur d'une installation existante : le .xlsx le plus récent de data (copies, verrous Excel et sauvegardes exclus)
+        candidats = [os.path.join(DOSSIER_DONNEES, nom) for nom in os.listdir(DOSSIER_DONNEES)
+                     if nom.lower().endswith(".xlsx") and not nom.startswith(("~$", "copie_"))
+                     and "AVANT_NETTOYAGE" not in nom.upper()]
+        if candidats:
+            return max(candidats, key=os.path.getmtime)
     return FICHIER_PROD_PAR_DEFAUT
 
 

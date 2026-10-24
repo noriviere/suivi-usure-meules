@@ -11,7 +11,12 @@
   const norm = s => (s === null || s === undefined) ? "" : String(s).split(/\s+/).filter(Boolean).join(" ").toLowerCase();
   const txt = v => (v === null || v === undefined) ? "" : String(v).trim();
   const estNb = v => typeof v === "number" && isFinite(v);
-  const g = x => String(parseFloat(Number(x).toPrecision(6)));            // format Python {:g}
+  const g = x => {                                                         // format Python {:g} (6 chiffres, notation exponentielle hors de 1e-4..1e6)
+    x = Number(x); if (x === 0 || !isFinite(x)) return String(x);
+    const [mantisse, exposant] = x.toExponential(5).split("e"), exp = Number(exposant);
+    if (exp < -4 || exp >= 6) return String(parseFloat(mantisse)) + "e" + (exp < 0 ? "-" : "+") + String(Math.abs(exp)).padStart(2, "0");
+    return String(parseFloat(x.toPrecision(6)));
+  };
   const arrondi = x => { const r = Math.round(x); return (Math.abs(x % 1) === 0.5 && r % 2 !== 0) ? r - 1 : r; };  // arrondi « pair » comme Python
   const jour = v => String(v === null || v === undefined ? "" : v).slice(0, 10);
   const mediane = a => { const s = [...a].sort((x, y) => x - y), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };

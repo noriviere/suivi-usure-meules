@@ -1,5 +1,6 @@
 @echo off
 rem ==== Lance l application en mode DEMO (fausses donnees, sans Excel) ====
+setlocal
 pushd "%~dp0.."
 set "PY=python_portable\python.exe"
 if not exist "%PY%" set "PY=.venv\Scripts\python.exe"

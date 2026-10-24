@@ -1,6 +1,7 @@
 # Met a jour le code depuis GitHub sans toucher aux donnees (data\, chemin_fichier.txt, serveur.txt, Python portable).
 $ErrorActionPreference = "Stop"
 $racine = Split-Path -Parent $PSScriptRoot
+if (-not (Test-Path (Join-Path $racine "backend\main.py"))) { Write-Host "Ce dossier ne ressemble pas a l'application (backend\main.py absent). Rien n'a ete modifie." -ForegroundColor Red; exit 1 }
 $depot = "https://github.com/noriviere/suivi-usure-meules/archive/refs/heads/main.zip"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
@@ -31,21 +32,36 @@ try {
   }
   Write-Host "Ancien code sauvegarde dans $archive"
 
-  # Nouveau code (les dossiers sont remplaces ; data, config\chemin_fichier.txt et serveur.txt ne sont pas touches)
-  foreach ($dossier in @("backend", "frontend", "outils", "tests")) {
-    $cible = Join-Path $racine $dossier
-    if (Test-Path $cible) { Remove-Item $cible -Recurse -Force }
-    Copy-Item (Join-Path $source.FullName $dossier) $cible -Recurse
+  # En cas d'echec au milieu (antivirus, disque plein...), l'ancien code est remis en place depuis l'archive.
+  try {
+    # Nouveau code (les dossiers sont remplaces ; data, config\chemin_fichier.txt et serveur.txt ne sont pas touches)
+    foreach ($dossier in @("backend", "frontend", "outils", "tests")) {
+      $cible = Join-Path $racine $dossier
+      if (Test-Path $cible) { Remove-Item $cible -Recurse -Force }
+      Copy-Item (Join-Path $source.FullName $dossier) $cible -Recurse
+    }
+    New-Item -ItemType Directory -Path (Join-Path $racine "config") -Force | Out-Null
+    Copy-Item (Join-Path $source.FullName "config\champs.json") (Join-Path $racine "config\champs.json") -Force
+    foreach ($fichier in @("requirements.txt", "README.md", "CONTRIBUTING.md")) {
+      Copy-Item (Join-Path $source.FullName $fichier) (Join-Path $racine $fichier) -Force
+    }
+    # scripts : tout sauf cette mise a jour en cours d'execution
+    New-Item -ItemType Directory -Path (Join-Path $racine "scripts") -Force | Out-Null
+    Get-ChildItem (Join-Path $source.FullName "scripts") -File | Where-Object { $_.Name -notlike "mettre_a_jour.*" } |
+      ForEach-Object { Copy-Item $_.FullName (Join-Path $racine "scripts") -Force }
+  } catch {
+    Write-Host "Echec pendant le remplacement : $($_.Exception.Message)" -ForegroundColor Red
+    foreach ($element in $elements) {
+      $sauve = Join-Path $archive $element
+      if (Test-Path $sauve) {
+        $cible = Join-Path $racine $element
+        if ((Get-Item $sauve).PSIsContainer -and (Test-Path $cible)) { Remove-Item $cible -Recurse -Force -ErrorAction SilentlyContinue }
+        Copy-Item $sauve $cible -Recurse -Force -ErrorAction SilentlyContinue
+      }
+    }
+    Write-Host "Ancien code remis en place. Copie de securite : $archive" -ForegroundColor Yellow
+    exit 1
   }
-  New-Item -ItemType Directory -Path (Join-Path $racine "config") -Force | Out-Null
-  Copy-Item (Join-Path $source.FullName "config\champs.json") (Join-Path $racine "config\champs.json") -Force
-  foreach ($fichier in @("requirements.txt", "README.md", "CONTRIBUTING.md")) {
-    Copy-Item (Join-Path $source.FullName $fichier) (Join-Path $racine $fichier) -Force
-  }
-  # scripts : tout sauf cette mise a jour en cours d'execution
-  New-Item -ItemType Directory -Path (Join-Path $racine "scripts") -Force | Out-Null
-  Get-ChildItem (Join-Path $source.FullName "scripts") -File | Where-Object { $_.Name -notlike "mettre_a_jour.*" } |
-    ForEach-Object { Copy-Item $_.FullName (Join-Path $racine "scripts") -Force }
   Write-Host ""
   Write-Host "Mise a jour terminee. Relancez le serveur (scripts\serveur_prod.bat)." -ForegroundColor Green
   Write-Host "Si le fichier requirements.txt a change, relancez aussi scripts\preparer_python.bat."

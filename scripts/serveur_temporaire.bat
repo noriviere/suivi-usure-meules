@@ -1,6 +1,7 @@
 @echo off
 rem Lance par lancer.bat quand le serveur habituel est eteint. Se ferme tout seul apres 30 min sans utilisation.
 pushd "%~dp0.."
+set "MEULES_DEMO="
 set "PY=python_portable\python.exe"
 if not exist "%PY%" set "PY=.venv\Scripts\python.exe"
 if not exist "%PY%" set "PY=python"

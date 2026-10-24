@@ -93,7 +93,10 @@ def ajout(donnees: dict, request: Request):
         notes = list(avertissements)
         if info_defaut:
             notes.append(f"Copiée dans l'onglet {info_defaut['onglet']} (ligne {info_defaut['ligne']})")
-        ecrire_journal(poste, propres, ligne, notes)
+        try:
+            ecrire_journal(poste, propres, ligne, notes)
+        except OSError:                       # journal ouvert dans Excel : la ligne est déjà enregistrée, ne pas faire croire à un échec
+            notes.append("Le journal des saisies n'a pas pu être écrit (fichier ouvert ailleurs).")
         mesures["verification"] = t_verif
         mesures["total_requete"] = time.perf_counter() - t0
         ecrire_chrono(mesures)
