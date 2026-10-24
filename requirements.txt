@@ -1,4 +1,4 @@
-fastapi
-uvicorn
-openpyxl
-pywin32; sys_platform == "win32"
+fastapi>=0.110
+uvicorn>=0.29
+openpyxl>=3.1
+pywin32>=306; sys_platform == "win32"

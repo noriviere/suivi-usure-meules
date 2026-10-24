@@ -9,6 +9,7 @@ from .. import config
 from .donnees import norm
 from .ecriture import FichierOccupe, VERROU, _Etape
 from . import ecriture as _ecriture
+from . import sauvegarde
 
 PAUSE_ETAPE_S = 0.35        # petite pause par étape pour que la barre de chargement soit visible en démo
 ETAPES = ["lancement_excel", "ouverture", "ajout_ligne", "formules", "formats", "valeurs", "calcul", "sauvegarde", "fermeture"]
@@ -41,7 +42,10 @@ def _ajouter(feuille, valeurs, meules, codes_lame, tolerant=False):
     """Ajoute une ligne à la fin de la feuille et agrandit son tableau Excel. Renvoie (n° de ligne, calculés, ignorés)."""
     entetes = [norm(c.value) for c in feuille[1]]
     brut = {norm(nom): valeur for nom, valeur in valeurs.items()}
-    ignores = [nom for nom in valeurs if norm(nom) not in entetes and tolerant]
+    absents = [nom for nom in valeurs if norm(nom) not in entetes]
+    if absents and not tolerant:                       # comme la vraie écriture : jamais d'écriture partielle
+        raise ValueError(f"Colonnes introuvables dans {feuille.title} : {absents}.")
+    ignores = absents
     ligne = dict(brut)
     ligne.update({k: v for k, v in _calculer(ligne, meules, codes_lame).items() if k in entetes})
     numero = feuille.max_row + 1
@@ -67,6 +71,7 @@ def ajouter_ligne(valeurs, defaut=False, progression=None, mesures=None):
     with VERROU:
         _ecriture.MESURES.clear()
         _ecriture._PROGRESSION = progression
+        sauvegarde.sauvegarder(config.FICHIER)
         try:
             for etape in ETAPES[:3]:
                 with _Etape(etape):

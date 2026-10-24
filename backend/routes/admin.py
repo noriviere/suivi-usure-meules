@@ -51,7 +51,10 @@ def connexion(donnees: dict, request: Request, reponse: Response):
 
 
 @router.post("/deconnexion")
-def deconnexion(reponse: Response):
+def deconnexion(request: Request, reponse: Response):
+    utilisateur = utilisateurs.utilisateur_de_session(request.cookies.get(config.COOKIE_SESSION))
+    if utilisateur:                                    # le cookie volé ne sert plus : toutes les sessions du compte sont fermées
+        utilisateurs.fermer_sessions(utilisateur["id"])
     reponse.delete_cookie(config.COOKIE_SESSION, path="/")
     return {"ok": True}
 

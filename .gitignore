@@ -1,5 +1,6 @@
 # Environnements et installations locales
 .venv/
+.venv-demo/
 python_portable/
 installeurs/
 __pycache__/

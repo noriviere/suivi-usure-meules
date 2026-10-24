@@ -207,6 +207,7 @@ def ajouter_ligne(valeurs, chemin=None, defaut=False, progression=None, mesures=
     with VERROU:
         _PROGRESSION = progression
         MESURES.clear()
+        sauvegarde.sauvegarder(chemin)            # copie de sécurité AVANT toute écriture (n'arrête jamais la saisie si elle échoue)
         t_debut = time.perf_counter()
         pythoncom.CoInitialize()
         excel = wb = None

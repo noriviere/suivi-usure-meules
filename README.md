@@ -58,7 +58,7 @@ mon-app/
 - Formulaire guidé en deux parties (monteur, démonteur), listes et valeurs déduites du classeur.
 - Contrôles bloquants (limites, cohérence des compteurs et des hauteurs) et avertissements non bloquants
   (valeur inhabituelle, doublon, matricule inconnu, meule ou machine non prévue).
-- Écriture dans Excel (COM) : formules et mise en forme de la ligne précédente recopiées. Aucune sauvegarde automatique du classeur : prévoir celle du serveur de fichiers.
+- Écriture dans Excel (COM) : formules et mise en forme de la ligne précédente recopiées. Avant chaque écriture, le classeur est copié dans `data/sauvegardes` (les 30 dernières copies sont gardées) ; si la copie échoue, la saisie continue et l'erreur s'affiche dans la fenêtre du serveur.
 - Une meule cassée et non finie est aussi copiée dans l'onglet « Data défaut ».
 
 **Consultation** (lecture seule, sans connexion)
@@ -131,6 +131,8 @@ Voir [CONTRIBUTING.md](CONTRIBUTING.md) : branche + demande de fusion (pull requ
   Le même script sert à changer un mot de passe oublié.
 - La communication se fait en HTTP, sans chiffrement : à réserver au réseau interne. Placer l'application derrière un
   proxy HTTPS (et passer `secure=True` sur le cookie dans `backend/routes/admin.py`) si l'accès sort du réseau de l'entreprise.
+- Limites assumées : le blocage après 5 échecs est mémorisé en mémoire (il repart à zéro quand le serveur redémarre) et porte sur le nom et sur le poste : derrière une même adresse, un essai répété peut bloquer d'autres postes pendant 5 minutes. « Se déconnecter » ferme toutes les sessions du compte, sur tous les postes.
+- Chaque saisie lance Excel côté serveur : les pages de saisie étant ouvertes à tout le réseau interne, ne pas exposer le port 8000 hors de l'entreprise.
 - Les pages de saisie et de consultation restent ouvertes, comme avant. Seuls les comptes et les règles métier sont protégés.
 
 ## Limites connues

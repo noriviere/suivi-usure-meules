@@ -12,6 +12,7 @@ MODE_TEST = False     # True : copie de test ; False : fichier de PRODUCTION
 # Se lance avec la variable d'environnement MEULES_DEMO=1 (voir scripts/lancer_demo.bat et .sh).
 MODE_DEMO = os.environ.get("MEULES_DEMO", "").strip().lower() in ("1", "true", "oui")
 DOSSIER_DEMO = os.path.join(DOSSIER_DONNEES, "demo")
+DOSSIER_SAUVEGARDES = os.path.join(DOSSIER_DONNEES, "sauvegardes")      # copie du classeur avant chaque écriture (voir services/sauvegarde.py)
 
 FICHIER_TEST = os.path.join(DOSSIER_DONNEES, "copie_app_test.xlsx")
 FICHIER_PROD_PAR_DEFAUT = os.path.join(DOSSIER_DONNEES, "classeur_meules.xlsx")
@@ -60,6 +61,7 @@ if MODE_DEMO:                      # tout est séparé des vraies données
     DB_PATH = os.path.join(DOSSIER_DEMO, "application_demo.sqlite3")
     JOURNAL = os.path.join(DOSSIER_DEMO, "journal_saisies_demo.csv")
     JOURNAL_CHRONO = os.path.join(DOSSIER_DEMO, "journal_chrono_demo.csv")
+    DOSSIER_SAUVEGARDES = os.path.join(DOSSIER_DEMO, "sauvegardes")
 COMPTE_DEMO = ("demo", "demo-meules")      # compte du back-office en mode démo (jamais utilisé en production)
 
 # Session du back-office

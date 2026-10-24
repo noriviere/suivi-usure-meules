@@ -58,12 +58,28 @@ def creer(nom, mot_de_passe):
         return cur.lastrowid
 
 
+_FAUX_HASH = []
+
+
+def _faux_hash():
+    """Hash factice (calculé une fois) : un nom inconnu coûte un seul scrypt, comme un nom connu, pour ne pas révéler quels comptes existent."""
+    if not _FAUX_HASH:
+        _FAUX_HASH.append(mots_de_passe.hacher("mot de passe factice"))
+    return _FAUX_HASH[0]
+
+
+def fermer_sessions(utilisateur_id):
+    """Invalide toutes les sessions ouvertes du compte (déconnexion)."""
+    with db.connexion() as con:
+        con.execute("UPDATE utilisateurs SET version_jeton = version_jeton + 1 WHERE id = ?", (utilisateur_id,))
+
+
 def authentifier(nom, mot_de_passe):
     """Renvoie l'utilisateur si le nom et le mot de passe sont bons, sinon None."""
     with db.connexion() as con:
         ligne = con.execute("SELECT * FROM utilisateurs WHERE nom = ?", ((nom or "").strip(),)).fetchone()
         if not ligne:
-            mots_de_passe.verifier(mot_de_passe or "", mots_de_passe.hacher("x"))   # même durée que pour un vrai compte
+            mots_de_passe.verifier(mot_de_passe or "", _faux_hash())   # même durée que pour un vrai compte
             return None
         if not mots_de_passe.verifier(mot_de_passe or "", ligne["mdp_hash"]):
             return None

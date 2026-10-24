@@ -46,7 +46,10 @@ class Limiteur:
 
     def _recents(self, cle, maintenant):
         recents = [instant for instant in self._echecs.get(cle, []) if maintenant - instant < self.fenetre_s]
-        self._echecs[cle] = recents
+        if recents:
+            self._echecs[cle] = recents
+        else:
+            self._echecs.pop(cle, None)                # pas d'entrée vide : la mémoire ne grandit pas à chaque nom essayé
         return recents
 
     def bloque(self, cle, maintenant=None):
@@ -54,7 +57,12 @@ class Limiteur:
 
     def echec(self, cle, maintenant=None):
         instant = maintenant if maintenant is not None else time.time()
-        self._recents(cle, instant).append(instant)
+        recents = self._recents(cle, instant)
+        recents.append(instant)
+        self._echecs[cle] = recents
+        if len(self._echecs) > 5000:                   # garde-fou contre un balayage de milliers de noms
+            for ancienne in sorted(self._echecs, key=lambda k: self._echecs[k][-1])[:1000]:
+                del self._echecs[ancienne]
 
     def succes(self, cle):
         self._echecs.pop(cle, None)
