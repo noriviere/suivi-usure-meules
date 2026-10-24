@@ -227,9 +227,24 @@
     c.prix_meule_moyenne_eur = v.prix_meule.p.valeur;
   }
 
+  /* La démo est construite à une date donnée ; au chargement, toutes les dates du classeur fictif sont décalées pour que
+     la dernière saisie reste « d'hier » quel que soit le jour où l'on ouvre la démo : plus besoin de la reconstruire. */
+  function decalerDates(donnees, depuis) {
+    const ajd = new Date().toLocaleDateString("sv-SE"), jours = (a, b) => Math.round((Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10)) - Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10))) / 864e5);
+    const delta = depuis ? jours(ajd, depuis) : 0;
+    if (!delta) return;
+    for (const ligne of donnees.lignes) for (let i = 1; i < ligne.length; i++) {
+      const v = ligne[i];
+      if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        const d = new Date(Date.UTC(+v.slice(0, 4), +v.slice(5, 7) - 1, +v.slice(8, 10) + delta));
+        ligne[i] = d.toISOString().slice(0, 10);
+      }
+    }
+  }
+
   async function charger() {
     if (!enChargement) enChargement = vraiFetch("demo_data.json").then(r => r.json()).then(j => {
-      D = j; D.champs_base = copie(D.champs); preparer();
+      D = j; D.champs_base = copie(D.champs); decalerDates(D.donnees, D.date_construction); preparer();
       ETAT = lireSession() || {
         humour: true, reglages: copie(D.reglages), reglages_origine: copie(D.reglages), historique: [],
         comptes: [{ id: 1, nom: "demo", cree_le: maintenant(), derniere_connexion: maintenant() },

@@ -67,3 +67,29 @@ class TestParite(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(shutil.which("node"), "Node.js absent")
+class TestDecalageDesDates(unittest.TestCase):
+    def test_les_dates_suivent_le_jour_d_ouverture(self):
+        import datetime
+        with tempfile.TemporaryDirectory() as dossier:
+            anciens = (config.DB_PATH, config.FICHIER)
+            try:
+                instantane = construire_demo_web.instantane(dossier)
+            finally:
+                config.DB_PATH, config.FICHIER = anciens
+            colonne = instantane["donnees"]["entetes"].index("Date montage") + 1
+            originales = [ligne[colonne] for ligne in instantane["donnees"]["lignes"]]
+            instantane["date_construction"] = (datetime.date.today() - datetime.timedelta(days=10)).isoformat()
+            fichier = os.path.join(dossier, "demo.json")
+            with open(fichier, "w", encoding="utf-8") as f:
+                json.dump(instantane, f, ensure_ascii=False)
+            sortie = subprocess.run(["node", os.path.join(RACINE, "tests", "decalage_demo_web.js"), fichier],
+                                    capture_output=True, text=True, timeout=60)
+            self.assertEqual(sortie.returncode, 0, sortie.stderr)
+            vues = json.loads(sortie.stdout)
+            attendues = [(datetime.date.fromisoformat(d) + datetime.timedelta(days=10)).isoformat() if isinstance(d, str) and len(d) == 10 and d[4] == "-" else d
+                         for d in originales]
+            self.assertEqual(vues, attendues)
+            self.assertNotEqual(vues, originales)
