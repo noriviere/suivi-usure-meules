@@ -26,6 +26,7 @@ from backend.services.regles import perte_annuelle            # noqa: E402
 from outils.donnees_fictives import creer_classeur            # noqa: E402
 
 SORTIE = os.path.join(RACINE, "docs")
+A_GARDER = ("agents", "adr")                                  # docs/ écrits à la main pour les agents, pas par ce script
 BANDEAU = "DÉMO EN LIGNE : données entièrement inventées. Les saisies sont contrôlées comme en vrai mais ne sont enregistrées nulle part."
 
 
@@ -63,9 +64,15 @@ def adapter_html(texte, scripts_avant=()):
 def construire():
     with tempfile.TemporaryDirectory() as dossier_temp:
         donnees_demo = instantane(dossier_temp)
-    if os.path.isdir(SORTIE):
-        shutil.rmtree(SORTIE)
-    os.makedirs(SORTIE)
+    os.makedirs(SORTIE, exist_ok=True)
+    for nom in os.listdir(SORTIE):
+        if nom in A_GARDER:
+            continue
+        chemin = os.path.join(SORTIE, nom)
+        if os.path.isdir(chemin):
+            shutil.rmtree(chemin)
+        else:
+            os.remove(chemin)
     shutil.copytree(os.path.join(RACINE, "frontend", "css"), os.path.join(SORTIE, "static", "css"))
     shutil.copytree(os.path.join(RACINE, "frontend", "js"), os.path.join(SORTIE, "static", "js"))
     shutil.copytree(os.path.join(RACINE, "frontend", "img"), os.path.join(SORTIE, "static", "img"))
