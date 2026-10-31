@@ -76,8 +76,7 @@ def main():
 
     import pythoncom
     import win32com.client as win32
-    from backend.services.classeur_excel import _onglet_defaut
-    from backend.services.ecriture import FEUILLE, TABLEAU, FichierOccupe
+    from backend.services.ecriture import FEUILLE, TABLEAU, FichierOccupe, trouver_onglet
 
     pythoncom.CoInitialize()
     excel = wb = None
@@ -116,7 +115,7 @@ def main():
         n_data = corriger_matricules(tbl)
         n_def = 0
         try:
-            ws_d = _onglet_defaut(wb, CONFIG["defaut"]["onglet"])
+            ws_d = wb.Worksheets(trouver_onglet([ws.Name for ws in wb.Worksheets], CONFIG["defaut"]["onglet"]))
             if ws_d.ListObjects.Count:
                 n_def = corriger_matricules(ws_d.ListObjects(1))
         except Exception as erreur:

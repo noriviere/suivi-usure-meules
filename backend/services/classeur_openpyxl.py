@@ -7,7 +7,7 @@ import time
 from openpyxl import load_workbook
 
 from .donnees import norm
-from .ecriture import FEUILLE, FichierOccupe
+from .ecriture import FEUILLE, TABLEAU, FichierOccupe
 
 
 def _calculer(ligne, meules, codes_lame):
@@ -42,52 +42,58 @@ class ClasseurOpenpyxl:
             time.sleep(self.pause_s)
         with etape("ouverture"):
             try:
-                wb = load_workbook(chemin)
+                classeur = load_workbook(chemin)
             except PermissionError:
-                raise FichierOccupe("Le classeur est ouvert ailleurs : rien n'a été enregistré. Réessayez dans un instant.")
+                raise FichierOccupe("Le classeur est utilisé par quelqu'un d'autre : "
+                                    "rien n'a été enregistré. Réessayez dans un instant.")
             time.sleep(self.pause_s)
-        return _ClasseurOuvert(wb, chemin, self.pause_s)
+        return ClasseurOpenpyxlOuvert(classeur, chemin, self.pause_s)
 
 
-class _ClasseurOuvert:
-    def __init__(self, wb, chemin, pause_s):
-        self.wb, self.chemin, self.pause_s = wb, chemin, pause_s
+class ClasseurOpenpyxlOuvert:
+    def __init__(self, classeur, chemin, pause_s):
+        self.classeur, self.chemin, self.pause_s = classeur, chemin, pause_s
         self.meules = {}
-        for ligne in wb["Liste Meule"].iter_rows(min_row=2, values_only=True):
+        for ligne in classeur["Liste Meule"].iter_rows(min_row=2, values_only=True):
             if ligne[0]:
                 self.meules[str(ligne[0])] = {"fournisseur": ligne[3], "diametre": ligne[4]}
         self.codes_lame = {}
-        for ligne in wb["Formats & matière"].iter_rows(min_row=2, values_only=True):
+        for ligne in classeur["Formats & matière"].iter_rows(min_row=2, values_only=True):
             if ligne[2] is not None:
                 self.codes_lame[norm(str(ligne[2]) + str(ligne[3] or ""))] = ligne[1]
 
     def onglets(self):
-        return [ws.title for ws in self.wb.worksheets]
+        return [feuille.title for feuille in self.classeur.worksheets]
 
     def tableau_data(self):
-        return self.wb[FEUILLE]
+        if FEUILLE not in self.classeur.sheetnames or TABLEAU not in self.classeur[FEUILLE].tables:
+            return None
+        return self.classeur[FEUILLE]
 
     def tableau_de(self, onglet):
-        feuille = self.wb[onglet]
+        feuille = self.classeur[onglet]
         return feuille if feuille.tables else None
 
     def colonnes(self, feuille):
         return [cellule.value for cellule in feuille[1]]
 
     def ajouter(self, feuille, cibles, etape):
-        """Ajoute une ligne à la fin de la feuille, agrandit son tableau et renvoie (n° de ligne, colonnes calculées)."""
-        entetes = [norm(nom) for nom in self.colonnes(feuille)]
+        """Ajoute une ligne à la fin de la feuille, agrandit son tableau et renvoie (n° de ligne, colonnes calculées).
+        Comme avec Excel, les colonnes calculées sont renvoyées sous leur nom d'en-tête."""
+        noms = self.colonnes(feuille)
+        entetes = [norm(nom) for nom in noms]
         brut = {norm(nom): valeur for nom, valeur in cibles.items()}
         with etape("ajout_ligne"):
             numero = feuille.max_row + 1
             for table in feuille.tables.values():
-                debut = table.ref.split(":")[0]
-                fin_colonne = "".join(c for c in table.ref.split(":")[1] if c.isalpha())
+                debut, fin = table.ref.split(":")
+                fin_colonne = "".join(caractere for caractere in fin if caractere.isalpha())
                 table.ref = f"{debut}:{fin_colonne}{numero}"
             time.sleep(self.pause_s)
         with etape("formules"):
             ligne = dict(brut)
-            ligne.update({k: v for k, v in _calculer(ligne, self.meules, self.codes_lame).items() if k in entetes})
+            ligne.update({entete: valeur for entete, valeur in _calculer(ligne, self.meules, self.codes_lame).items()
+                          if entete in entetes})
             time.sleep(self.pause_s)
         with etape("formats"):
             time.sleep(self.pause_s)
@@ -98,13 +104,13 @@ class _ClasseurOuvert:
             time.sleep(self.pause_s)
         with etape("calcul"):
             time.sleep(self.pause_s)
-        calcules = {entete: "" if ligne[entete] is None else ligne[entete]
-                    for entete in entetes if entete not in brut and entete in ligne}
+        calcules = {str(nom).replace("\n", " "): "" if ligne[entete] is None else ligne[entete]
+                    for nom, entete in zip(noms, entetes) if entete not in brut and entete in ligne}
         return numero, calcules
 
     def enregistrer(self):
-        self.wb.save(self.chemin)
+        self.classeur.save(self.chemin)
 
     def fermer(self):
-        self.wb.close()
+        self.classeur.close()
         time.sleep(self.pause_s)

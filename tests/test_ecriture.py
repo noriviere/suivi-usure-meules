@@ -22,21 +22,26 @@ ETAPES = ["attente", "lancement_excel", "ouverture", "ajout_ligne", "formules", 
 
 def _lignes(feuille):
     """Les lignes d'un onglet du classeur, en dict {en-tête: valeur}."""
-    ws = load_workbook(config.FICHIER)[feuille]
-    entetes = [cellule.value for cellule in ws[1]]
-    return [dict(zip(entetes, ligne)) for ligne in ws.iter_rows(min_row=2, values_only=True)]
+    onglet = load_workbook(config.FICHIER)[feuille]
+    entetes = [cellule.value for cellule in onglet[1]]
+    return [dict(zip(entetes, ligne)) for ligne in onglet.iter_rows(min_row=2, values_only=True)]
 
 
-class _ClasseurFige(ClasseurOpenpyxl):
-    """Adapter de test : ouvre le classeur avec openpyxl puis remplace l'ajout de ligne."""
-    def __init__(self, ajouter):
-        super().__init__()
-        self._ajouter = ajouter
+class _ClasseurFormuleEnErreur:
+    """Faux adapter : délègue tout à l'adapter openpyxl, mais chaque ligne ajoutée a une formule en erreur."""
+    def __init__(self):
+        self.reel = ClasseurOpenpyxl()
 
     def ouvrir(self, chemin, etape):
-        ouvert = super().ouvrir(chemin, etape)
-        ouvert.ajouter = self._ajouter
-        return ouvert
+        self.ouvert = self.reel.ouvrir(chemin, etape)
+        return self
+
+    def ajouter(self, tableau, cibles, etape):
+        numero, _ = self.ouvert.ajouter(tableau, cibles, etape)
+        return numero, {"Nb faces/mm": "#DIV/0!"}
+
+    def __getattr__(self, nom):                      # onglets, tableau_data, colonnes, enregistrer, fermer...
+        return getattr(self.ouvert, nom)
 
 
 class TestEcriture(unittest.TestCase):
@@ -75,7 +80,7 @@ class TestEcriture(unittest.TestCase):
         ligne, calcules, info_defaut = ajouter_ligne(self.propres(self.saisie), classeur=self.classeur)
         self.assertEqual(ligne, nb_data + 2)
         self.assertIsNone(info_defaut)
-        self.assertEqual(calcules["nombre de face brut"], 2500)
+        self.assertEqual(calcules["Nombre de face brut"], 2500)       # nom d'en-tête, comme avec Excel
         self.assertEqual(_lignes("Data")[-1]["Matricule monteur"], "1001")
 
     def test_une_copie_de_securite_est_faite_avant_ecriture(self):
@@ -118,12 +123,11 @@ class TestEcriture(unittest.TestCase):
         self.assertEqual(_lignes("Data defaut")[-1]["Commentaire"], "Meule cassée ou fissurée : fissure")
 
     def test_alias_de_colonne_dans_data_defaut(self):
-        wb = load_workbook(config.FICHIER)
-        ws = wb["Data defaut"]
-        for cellule in ws[1]:
+        classeur_xlsx = load_workbook(config.FICHIER)
+        for cellule in classeur_xlsx["Data defaut"][1]:
             if cellule.value == "Matricule monteur":
                 cellule.value = "Matricule"                  # alias prévu dans champs.json
-        wb.save(config.FICHIER)
+        classeur_xlsx.save(config.FICHIER)
         _, _, info = ajouter_ligne(self.propres(self.defectueuse), defaut=True, classeur=self.classeur)
         self.assertNotIn("Matricule monteur", info["colonnes_absentes"])
         self.assertEqual(_lignes("Data defaut")[-1]["Matricule"], "1001")
@@ -135,7 +139,7 @@ class TestEcriture(unittest.TestCase):
         self.assertEqual(len(_lignes("Data")), nb_data)
         self.assertEqual(ligne, nb_defaut + 2)
         self.assertEqual(ligne, info["ligne"])
-        self.assertEqual(calcules, {})
+        self.assertEqual(calcules["Nombre de face brut"], 2500)       # colonnes calculées de la ligne Data défaut
 
     def test_onglet_data_defaut_introuvable_rien_n_est_ecrit(self):
         avant = self.contenu()
@@ -151,10 +155,26 @@ class TestEcriture(unittest.TestCase):
 
     def test_formule_en_erreur_annule_l_ecriture(self):
         avant = self.contenu()
-        classeur = _ClasseurFige(lambda tableau, cibles, etape: (99, {"Nb faces/mm": "#DIV/0!"}))
         with self.assertRaises(ValueError):
-            ajouter_ligne(self.propres(self.saisie), classeur=classeur)
+            ajouter_ligne(self.propres(self.saisie), classeur=_ClasseurFormuleEnErreur())
         self.assertEqual(self.contenu(), avant)
+
+    def test_tableau_data_absent_rien_n_est_ecrit(self):
+        classeur_xlsx = load_workbook(config.FICHIER)
+        del classeur_xlsx["Data"].tables["TableauData"]
+        classeur_xlsx.save(config.FICHIER)
+        avant = self.contenu()
+        with self.assertRaises(ValueError):
+            ajouter_ligne(self.propres(self.saisie), classeur=self.classeur)
+        self.assertEqual(self.contenu(), avant)
+
+    def test_mode_demo_choisit_l_adapter_openpyxl(self):
+        with mock.patch.object(config, "MODE_DEMO", True), mock.patch.object(ecriture, "_CLASSEUR", None), \
+                mock.patch.object(ecriture, "PAUSE_DEMO_S", 0):
+            ligne, _, _ = ajouter_ligne(self.propres(self.saisie))
+            self.assertIsInstance(ecriture._CLASSEUR, ClasseurOpenpyxl)
+        self.assertEqual(_lignes("Data")[-1]["Matricule monteur"], "1001")
+        self.assertEqual(ligne, len(_lignes("Data")) + 1)
 
     def test_classeur_occupe_libere_le_verrou(self):
         class Occupe:
