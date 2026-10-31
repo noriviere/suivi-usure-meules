@@ -27,6 +27,11 @@ jobs:
         run: python -m unittest discover -s tests -t . -v
       - name: La démo en ligne (docs/) est à jour
         run: python -m outils.construire_demo_web --check
+      - name: La démo en ligne ne dépend pas de la date du jour
+        # 400 jours plus tard, la construction doit donner la même démo (aucune lecture de la date du jour)
+        run: |
+          sudo apt-get install -y -q faketime
+          faketime '+400 days' python -m outils.construire_demo_web --check
       - name: Aucune donnée réelle versionnée
         run: |
           if git ls-files | grep -Ei '\.(xlsx|xlsm|xls|xlsb|sqlite3?|db|csv)$|journal_|chemin_fichier\.txt$'; then echo "Fichier de données versionné !" ; exit 1; fi
