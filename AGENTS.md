@@ -16,7 +16,7 @@ Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/age
 
 ## Workflow
 
-Adding or changing an application function: one thread per change, running these skills in order, none skipped: `grill-with-docs` → `to-spec` → `to-tickets` → `implement` → `code-review` → `retro`. Size each ticket to fit one agent session comfortably; use as few tickets as that allows. Agent context and tooling changes (this file, CI checks, hooks) need no thread of their own.
+Adding or changing an application function: one thread per change, running these skills in order, none skipped: `/mattpocock-skills:grill-with-docs` → `/mattpocock-skills:to-spec` → `/mattpocock-skills:to-tickets` → `/mattpocock-skills:implement` → `/mattpocock-skills:code-review` → `/retro`. Noel types each command (most can't be invoked by an agent): at each step, give him the exact command in a code block. The built-in `/code-review` is a different tool; the workflow's review is the `mattpocock-skills` one. Size each ticket to fit one agent session comfortably; use as few tickets as that allows. Agent context and tooling changes (this file, CI checks, hooks) need no thread of their own.
 
 Every pull request body is written with the `pr` skill (`.claude/skills/pr`), followed by the « Vérifications » checklist of `.github/pull_request_template.md`.
 
