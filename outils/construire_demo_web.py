@@ -9,8 +9,8 @@ La démo est 100 % statique : elle ne contient AUCUNE donnée réelle. Le script
   3. copie la page web (frontend/) en adaptant les chemins, et ajoute demo_web/demo-api.js,
      un faux serveur en JavaScript qui rejoue les contrôles de saisie dans le navigateur.
 Rien n'est écrit nulle part : les saisies de la démo restent dans la page."""
+import argparse
 import datetime
-import filecmp
 import json
 import os
 import shutil
@@ -51,7 +51,7 @@ def instantane(dossier_temp):
         "meules": reference["meules"],
         "donnees": donnees.tableau(),
         "anomalies": anomalies(),
-        "perte": perte_annuelle(),
+        "perte": perte_annuelle(DATE_REFERENCE.year),
         "reglages": reglages.etat(),
         "date_construction": DATE_REFERENCE.isoformat(),
     }
@@ -78,9 +78,8 @@ def construire(sortie=SORTIE):
             shutil.rmtree(chemin)
         else:
             os.remove(chemin)
-    shutil.copytree(os.path.join(RACINE, "frontend", "css"), os.path.join(sortie, "static", "css"))
-    shutil.copytree(os.path.join(RACINE, "frontend", "js"), os.path.join(sortie, "static", "js"))
-    shutil.copytree(os.path.join(RACINE, "frontend", "img"), os.path.join(sortie, "static", "img"))
+    for dossier in ("css", "js", "img"):
+        shutil.copytree(os.path.join(RACINE, "frontend", dossier), os.path.join(sortie, "static", dossier))
     # les chemins d'images de champs.json (« /static/img/... ») deviennent relatifs
     donnees_demo_texte = json.dumps(donnees_demo, ensure_ascii=False).replace('"/static/img/', '"static/img/')
     with open(os.path.join(sortie, "demo_data.json"), "w", encoding="utf-8") as fichier:
@@ -107,14 +106,20 @@ def construire(sortie=SORTIE):
 def ecarts(sortie=SORTIE):
     """Fichiers de sortie qui diffèrent d'une construction neuve (modifiés, en trop, manquants), sans rien écrire dans sortie."""
     with tempfile.TemporaryDirectory() as dossier_temp:
-        neuve = os.path.join(dossier_temp, "docs")
-        construire(neuve)
-        attendus, presents = _fichiers(neuve), _fichiers(sortie)
-        liste = [f"modifié : {nom}" for nom in sorted(attendus & presents)
-                 if not filecmp.cmp(os.path.join(neuve, nom), os.path.join(sortie, nom), shallow=False)]
-    liste += [f"en trop : {nom}" for nom in sorted(presents - attendus)]
-    liste += [f"manquant : {nom}" for nom in sorted(attendus - presents)]
-    return liste
+        construction_neuve = os.path.join(dossier_temp, "docs")
+        construire(construction_neuve)
+        attendus, presents = _fichiers(construction_neuve), _fichiers(sortie)
+        ecarts_trouves = [f"modifié : {nom}" for nom in sorted(attendus & presents)
+                          if _contenu(os.path.join(construction_neuve, nom)) != _contenu(os.path.join(sortie, nom))]
+    ecarts_trouves += [f"en trop : {nom}" for nom in sorted(presents - attendus)]
+    ecarts_trouves += [f"manquant : {nom}" for nom in sorted(attendus - presents)]
+    return ecarts_trouves
+
+
+def _contenu(chemin):
+    """Contenu du fichier, fins de ligne Windows ramenées à celles de Linux (git les convertit au checkout sous Windows)."""
+    with open(chemin, "rb") as fichier:
+        return fichier.read().replace(b"\r\n", b"\n")
 
 
 def _fichiers(dossier):
@@ -127,17 +132,18 @@ def _fichiers(dossier):
 
 
 def main(arguments=None, sortie=SORTIE):
-    arguments = sys.argv[1:] if arguments is None else arguments
-    if "--check" not in arguments:
+    analyseur = argparse.ArgumentParser(prog="python -m outils.construire_demo_web", description="Construit la démo en ligne dans docs/.")
+    analyseur.add_argument("--check", action="store_true", help="dit si docs/ est à jour, sans rien écrire (code de sortie 1 sinon)")
+    if not analyseur.parse_args(arguments).check:
         nombre = construire(sortie)
         print(f"Démo construite dans {sortie} ({nombre} lignes fictives).")
         return 0
-    liste = ecarts(sortie)
-    if not liste:
+    ecarts_trouves = ecarts(sortie)
+    if not ecarts_trouves:
         print(f"La démo dans {sortie} est à jour.")
         return 0
     print(f"La démo dans {sortie} n'est pas à jour :")
-    for ecart in liste:
+    for ecart in ecarts_trouves:
         print(f"  {ecart}")
     print("Lancer python -m outils.construire_demo_web puis commiter docs/.")
     return 1

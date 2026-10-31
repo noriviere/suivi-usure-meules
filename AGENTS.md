@@ -18,6 +18,8 @@ Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/age
 
 Adding or changing an application function: one thread per change, running these skills in order, none skipped: `grill-with-docs` → `to-spec` → `to-tickets` → `implement` → `code-review` → `retro`. Size each ticket to fit one agent session comfortably; use as few tickets as that allows. Agent context and tooling changes (this file, CI checks, hooks) need no thread of their own.
 
+Every pull request body is written with the `pr` skill (`.claude/skills/pr`), followed by the « Vérifications » checklist of `.github/pull_request_template.md`.
+
 ## Where things are
 
 - Coding rules: `CONTRIBUTING.md` (two are enforced by `tests/test_regles_code.py`).
