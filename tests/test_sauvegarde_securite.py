@@ -48,11 +48,11 @@ class TestSecurite(BaseTest):
 
     def test_limiteur_ne_garde_pas_d_entree_vide_et_reste_borne(self):
         limiteur = sessions.Limiteur(maxi=3, fenetre_s=60)
-        for i in range(100):
-            self.assertFalse(limiteur.bloque(f"nom{i}"))
+        for numero in range(100):
+            self.assertFalse(limiteur.bloque(f"nom{numero}"))
         self.assertEqual(len(limiteur._echecs), 0)
-        for i in range(6000):
-            limiteur.echec(f"nom{i}")
+        for numero in range(6000):
+            limiteur.echec(f"nom{numero}")
         self.assertLessEqual(len(limiteur._echecs), 5000)
         for _ in range(3):
             limiteur.echec("cible")

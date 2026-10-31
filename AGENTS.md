@@ -13,3 +13,14 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 ### Domain docs
 
 Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Workflow
+
+Adding or changing an application function: one thread per change, running these skills in order, none skipped: `grill-with-docs` → `to-spec` → `to-tickets` → `implement` → `code-review` → `retro`. Size each ticket to fit one agent session comfortably; use as few tickets as that allows. Agent context and tooling changes (this file, CI checks, hooks) need no thread of their own.
+
+## Where things are
+
+- Coding rules: `CONTRIBUTING.md` (two are enforced by `tests/test_regles_code.py`).
+- Domain vocabulary: `CONTEXT.md`.
+- Writing an entry to the workbook: `backend/services/ecriture.py` (`ajouter_ligne`), with adapters `classeur_excel.py` (production) and `classeur_openpyxl.py` (demo, tests). Reading it: `donnees.py`, `listes.py`, `reglages.py`.
+- Checks before committing: `git config core.hooksPath .githooks` once per clone (pyflakes + tests).
