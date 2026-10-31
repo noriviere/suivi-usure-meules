@@ -1,6 +1,7 @@
 """Construit la démo en ligne (dossier docs/, publiable avec GitHub Pages).
 
-    python -m outils.construire_demo_web
+    python -m outils.construire_demo_web            reconstruit docs/
+    python -m outils.construire_demo_web --check    dit si docs/ est à jour, sans rien écrire (code de sortie 1 sinon)
 
 La démo est 100 % statique : elle ne contient AUCUNE donnée réelle. Le script
   1. fabrique un classeur de fausses données (outils/donnees_fictives.py) dans un dossier temporaire,
@@ -8,6 +9,8 @@ La démo est 100 % statique : elle ne contient AUCUNE donnée réelle. Le script
   3. copie la page web (frontend/) en adaptant les chemins, et ajoute demo_web/demo-api.js,
      un faux serveur en JavaScript qui rejoue les contrôles de saisie dans le navigateur.
 Rien n'est écrit nulle part : les saisies de la démo restent dans la page."""
+import datetime
+import filecmp
 import json
 import os
 import shutil
@@ -26,13 +29,16 @@ from outils.donnees_fictives import creer_classeur            # noqa: E402
 
 SORTIE = os.path.join(RACINE, "docs")
 A_GARDER = ("agents", "adr")                                  # docs/ écrits à la main pour les agents, pas par ce script
+# Date fixe des fausses données : la démo est identique d'une construction à l'autre (pas de faux diff dans docs/).
+# Le navigateur recale de toute façon les dates sur le jour d'ouverture (decalerDates dans demo-api.js).
+DATE_REFERENCE = datetime.date(2026, 10, 31)
 BANDEAU = "DÉMO EN LIGNE : données entièrement inventées. Les saisies sont contrôlées comme en vrai mais ne sont enregistrées nulle part."
 
 
 def instantane(dossier_temp):
     config.DB_PATH = os.path.join(dossier_temp, "demo.sqlite3")
     config.FICHIER = os.path.join(dossier_temp, "demo.xlsx")
-    creer_classeur(config.FICHIER)
+    creer_classeur(config.FICHIER, aujourdhui=DATE_REFERENCE)
     for cache in (donnees._cache, donnees._cache_t, listes._cache):
         cache["mtime"] = None
     reglages._cache.update(cle=None, config=None)
@@ -47,7 +53,7 @@ def instantane(dossier_temp):
         "anomalies": anomalies(),
         "perte": perte_annuelle(),
         "reglages": reglages.etat(),
-        "date_construction": __import__("datetime").date.today().isoformat(),
+        "date_construction": DATE_REFERENCE.isoformat(),
     }
 
 
@@ -60,28 +66,28 @@ def adapter_html(texte, scripts_avant=()):
     return texte
 
 
-def construire():
+def construire(sortie=SORTIE):
     with tempfile.TemporaryDirectory() as dossier_temp:
         donnees_demo = instantane(dossier_temp)
-    os.makedirs(SORTIE, exist_ok=True)
-    for nom in os.listdir(SORTIE):
+    os.makedirs(sortie, exist_ok=True)
+    for nom in os.listdir(sortie):
         if nom in A_GARDER:
             continue
-        chemin = os.path.join(SORTIE, nom)
+        chemin = os.path.join(sortie, nom)
         if os.path.isdir(chemin):
             shutil.rmtree(chemin)
         else:
             os.remove(chemin)
-    shutil.copytree(os.path.join(RACINE, "frontend", "css"), os.path.join(SORTIE, "static", "css"))
-    shutil.copytree(os.path.join(RACINE, "frontend", "js"), os.path.join(SORTIE, "static", "js"))
-    shutil.copytree(os.path.join(RACINE, "frontend", "img"), os.path.join(SORTIE, "static", "img"))
+    shutil.copytree(os.path.join(RACINE, "frontend", "css"), os.path.join(sortie, "static", "css"))
+    shutil.copytree(os.path.join(RACINE, "frontend", "js"), os.path.join(sortie, "static", "js"))
+    shutil.copytree(os.path.join(RACINE, "frontend", "img"), os.path.join(sortie, "static", "img"))
     # les chemins d'images de champs.json (« /static/img/... ») deviennent relatifs
     donnees_demo_texte = json.dumps(donnees_demo, ensure_ascii=False).replace('"/static/img/', '"static/img/')
-    with open(os.path.join(SORTIE, "demo_data.json"), "w", encoding="utf-8") as fichier:
+    with open(os.path.join(sortie, "demo_data.json"), "w", encoding="utf-8") as fichier:
         fichier.write(donnees_demo_texte)
-    shutil.copy(os.path.join(RACINE, "demo_web", "demo-api.js"), os.path.join(SORTIE, "demo-api.js"))
+    shutil.copy(os.path.join(RACINE, "demo_web", "demo-api.js"), os.path.join(sortie, "demo-api.js"))
     # les liens construits en JavaScript par la page d'administration deviennent relatifs
-    chemin_admin_js = os.path.join(SORTIE, "static", "js", "admin.js")
+    chemin_admin_js = os.path.join(sortie, "static", "js", "admin.js")
     with open(chemin_admin_js, encoding="utf-8") as fichier:
         code = fichier.read()
     for ancien, nouveau in (('href: "/consultation"', 'href: "consultation.html"'), ('href: "/"', 'href: "index.html"')):
@@ -92,11 +98,50 @@ def construire():
     for source, cible in (("index.html", "index.html"), ("consultation.html", "consultation.html"), ("admin.html", "admin.html")):
         with open(os.path.join(RACINE, "frontend", "html", source), encoding="utf-8") as fichier:
             texte = adapter_html(fichier.read(), scripts_avant=("demo-api.js",))
-        with open(os.path.join(SORTIE, cible), "w", encoding="utf-8") as fichier:
+        with open(os.path.join(sortie, cible), "w", encoding="utf-8") as fichier:
             fichier.write(texte)
-    open(os.path.join(SORTIE, ".nojekyll"), "w").close()
-    print(f"Démo construite dans {SORTIE} ({len(donnees_demo['donnees']['lignes'])} lignes fictives).")
+    open(os.path.join(sortie, ".nojekyll"), "w").close()
+    return len(donnees_demo["donnees"]["lignes"])
+
+
+def ecarts(sortie=SORTIE):
+    """Fichiers de sortie qui diffèrent d'une construction neuve (modifiés, en trop, manquants), sans rien écrire dans sortie."""
+    with tempfile.TemporaryDirectory() as dossier_temp:
+        neuve = os.path.join(dossier_temp, "docs")
+        construire(neuve)
+        attendus, presents = _fichiers(neuve), _fichiers(sortie)
+        liste = [f"modifié : {nom}" for nom in sorted(attendus & presents)
+                 if not filecmp.cmp(os.path.join(neuve, nom), os.path.join(sortie, nom), shallow=False)]
+    liste += [f"en trop : {nom}" for nom in sorted(presents - attendus)]
+    liste += [f"manquant : {nom}" for nom in sorted(attendus - presents)]
+    return liste
+
+
+def _fichiers(dossier):
+    """Chemins relatifs de tous les fichiers du dossier, hors dossiers écrits à la main (A_GARDER)."""
+    if not os.path.isdir(dossier):
+        return set()
+    return {os.path.relpath(os.path.join(racine, nom), dossier)
+            for racine, _, noms in os.walk(dossier) for nom in noms
+            if os.path.relpath(racine, dossier).split(os.sep)[0] not in A_GARDER}
+
+
+def main(arguments=None, sortie=SORTIE):
+    arguments = sys.argv[1:] if arguments is None else arguments
+    if "--check" not in arguments:
+        nombre = construire(sortie)
+        print(f"Démo construite dans {sortie} ({nombre} lignes fictives).")
+        return 0
+    liste = ecarts(sortie)
+    if not liste:
+        print(f"La démo dans {sortie} est à jour.")
+        return 0
+    print(f"La démo dans {sortie} n'est pas à jour :")
+    for ecart in liste:
+        print(f"  {ecart}")
+    print("Lancer python -m outils.construire_demo_web puis commiter docs/.")
+    return 1
 
 
 if __name__ == "__main__":
-    construire()
+    sys.exit(main())
