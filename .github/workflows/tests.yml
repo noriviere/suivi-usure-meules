@@ -36,3 +36,18 @@ jobs:
       - name: Aucun identifiant interne dans le code
         run: |
           if git grep -nIE "I[D] M[E]T [0-9]" -- . ':!.github'; then echo "Identifiant documentaire interne trouvé." ; exit 1; fi
+
+  tests-windows:
+    # L'application tourne sous Windows : mêmes tests, plus l'adapter Excel (COM) jusqu'au lancement d'Excel.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dépendances
+        run: pip install openpyxl pywin32 pyflakes
+      - name: Analyse statique
+        run: python -m pyflakes backend outils tests scripts
+      - name: Tests unitaires
+        run: python -m unittest discover -s tests -t . -v

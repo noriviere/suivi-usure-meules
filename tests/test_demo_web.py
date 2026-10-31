@@ -48,18 +48,19 @@ class TestParite(unittest.TestCase):
                     attendu.append({"erreurs": erreurs, "avertissements": avertissements})
                 fichier_demo = os.path.join(dossier, "demo.json")
                 fichier_saisies = os.path.join(dossier, "saisies.json")
-                with open(fichier_demo, "w", encoding="utf-8") as f:
-                    json.dump(instantane, f, ensure_ascii=False)
-                with open(fichier_saisies, "w", encoding="utf-8") as f:
-                    json.dump(saisies, f, ensure_ascii=False, default=str)
+                with open(fichier_demo, "w", encoding="utf-8") as sortie_json:
+                    json.dump(instantane, sortie_json, ensure_ascii=False)
+                with open(fichier_saisies, "w", encoding="utf-8") as sortie_json:
+                    json.dump(saisies, sortie_json, ensure_ascii=False, default=str)
                 sortie = subprocess.run(["node", os.path.join(RACINE, "tests", "parite_demo_web.js"), fichier_demo, fichier_saisies],
                                         capture_output=True, text=True, timeout=60)
                 self.assertEqual(sortie.returncode, 0, sortie.stderr)
                 obtenu = json.loads(sortie.stdout)
                 self.assertEqual(len(obtenu), len(attendu))
-                differences = [(i, a, o) for i, (a, o) in enumerate(zip(attendu, obtenu)) if a != o]
+                differences = [(numero, verdict_python, verdict_js) for numero, (verdict_python, verdict_js)
+                               in enumerate(zip(attendu, obtenu)) if verdict_python != verdict_js]
                 self.assertEqual(differences[:3], [])
-                self.assertTrue(any(a["avertissements"] for a in attendu) and any(a["erreurs"] for a in attendu))
+                self.assertTrue(any(verdict["avertissements"] for verdict in attendu) and any(verdict["erreurs"] for verdict in attendu))
             finally:
                 config.DB_PATH, config.FICHIER = anciens
 
@@ -82,13 +83,14 @@ class TestDecalageDesDates(unittest.TestCase):
             originales = [ligne[colonne] for ligne in instantane["donnees"]["lignes"]]
             instantane["date_construction"] = (datetime.date.today() - datetime.timedelta(days=10)).isoformat()
             fichier = os.path.join(dossier, "demo.json")
-            with open(fichier, "w", encoding="utf-8") as f:
-                json.dump(instantane, f, ensure_ascii=False)
+            with open(fichier, "w", encoding="utf-8") as sortie_json:
+                json.dump(instantane, sortie_json, ensure_ascii=False)
             sortie = subprocess.run(["node", os.path.join(RACINE, "tests", "decalage_demo_web.js"), fichier],
                                     capture_output=True, text=True, timeout=60)
             self.assertEqual(sortie.returncode, 0, sortie.stderr)
             vues = json.loads(sortie.stdout)
-            attendues = [(datetime.date.fromisoformat(d) + datetime.timedelta(days=10)).isoformat() if isinstance(d, str) and len(d) == 10 and d[4] == "-" else d
-                         for d in originales]
+            attendues = [(datetime.date.fromisoformat(date) + datetime.timedelta(days=10)).isoformat()
+                         if isinstance(date, str) and len(date) == 10 and date[4] == "-" else date
+                         for date in originales]
             self.assertEqual(vues, attendues)
             self.assertNotEqual(vues, originales)

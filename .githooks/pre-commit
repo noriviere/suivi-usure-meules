@@ -1,0 +1,6 @@
+#!/bin/sh
+# Contrôles avant chaque commit (activer une fois : git config core.hooksPath .githooks)
+PY=python3
+command -v "$PY" >/dev/null 2>&1 || PY=python
+"$PY" -m pyflakes backend outils tests scripts || { echo "pre-commit : pyflakes signale des erreurs."; exit 1; }
+"$PY" -m unittest discover -s tests -t . -q || { echo "pre-commit : des tests échouent."; exit 1; }

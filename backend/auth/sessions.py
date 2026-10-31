@@ -61,7 +61,7 @@ class Limiteur:
         recents.append(instant)
         self._echecs[cle] = recents
         if len(self._echecs) > 5000:                   # garde-fou contre un balayage de milliers de noms
-            for ancienne in sorted(self._echecs, key=lambda k: self._echecs[k][-1])[:1000]:
+            for ancienne in sorted(self._echecs, key=lambda nom: self._echecs[nom][-1])[:1000]:
                 del self._echecs[ancienne]
 
     def succes(self, cle):
