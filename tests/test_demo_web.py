@@ -53,7 +53,7 @@ class TestParite(unittest.TestCase):
                 with open(fichier_saisies, "w", encoding="utf-8") as sortie_json:
                     json.dump(saisies, sortie_json, ensure_ascii=False, default=str)
                 sortie = subprocess.run(["node", os.path.join(RACINE, "tests", "parite_demo_web.js"), fichier_demo, fichier_saisies],
-                                        capture_output=True, text=True, timeout=60)
+                                        capture_output=True, text=True, encoding="utf-8", timeout=60)
                 self.assertEqual(sortie.returncode, 0, sortie.stderr)
                 obtenu = json.loads(sortie.stdout)
                 self.assertEqual(len(obtenu), len(attendu))
@@ -86,7 +86,7 @@ class TestDecalageDesDates(unittest.TestCase):
             with open(fichier, "w", encoding="utf-8") as sortie_json:
                 json.dump(instantane, sortie_json, ensure_ascii=False)
             sortie = subprocess.run(["node", os.path.join(RACINE, "tests", "decalage_demo_web.js"), fichier],
-                                    capture_output=True, text=True, timeout=60)
+                                    capture_output=True, text=True, encoding="utf-8", timeout=60)
             self.assertEqual(sortie.returncode, 0, sortie.stderr)
             vues = json.loads(sortie.stdout)
             attendues = [(datetime.date.fromisoformat(date) + datetime.timedelta(days=10)).isoformat()
