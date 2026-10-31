@@ -26,10 +26,7 @@ jobs:
       - name: Tests unitaires
         run: python -m unittest discover -s tests -t . -v
       - name: La démo en ligne (docs/) est à jour
-        run: |
-          python -m outils.construire_demo_web
-          git diff --exit-code -- docs ':!docs/demo_data.json' || (echo "docs/ n'est pas à jour : lancer python -m outils.construire_demo_web puis commiter." && exit 1)
-          if [ -n "$(git status --porcelain docs | grep -v demo_data.json)" ]; then echo "docs/ contient des fichiers non versionnés : relancer la construction et commiter."; exit 1; fi
+        run: python -m outils.construire_demo_web --check
       - name: Aucune donnée réelle versionnée
         run: |
           if git ls-files | grep -Ei '\.(xlsx|xlsm|xls|xlsb|sqlite3?|db|csv)$|journal_|chemin_fichier\.txt$'; then echo "Fichier de données versionné !" ; exit 1; fi

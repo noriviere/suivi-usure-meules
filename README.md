@@ -21,7 +21,7 @@ les écritures passent par l'adapter `backend/services/classeur_openpyxl.py` sur
 
 La démo en ligne (`docs/`) est un site statique : `demo_web/demo-api.js` rejoue dans le navigateur les contrôles du serveur.
 Après une modification de la page ou des règles, la régénérer avec `python -m outils.construire_demo_web` et commiter `docs/`
-(la CI vérifie que `docs/` est à jour, et `tests/test_demo_web.py` compare les verdicts JavaScript et Python).
+(`--check` vérifie que `docs/` est à jour sans rien écrire, et la CI le lance ; et `tests/test_demo_web.py` compare les verdicts JavaScript et Python).
 
 ## Structure du projet
 

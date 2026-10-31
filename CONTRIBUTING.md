@@ -11,6 +11,7 @@ démo (`MEULES_DEMO=1`, voir le README) ou une **copie** du classeur, jamais le 
 1. Créer une branche à partir de `main` : `git switch -c ma-modification`.
 2. Modifier, puis lancer les tests : `python -m unittest discover -s tests -t .`
 3. Si la page web ou les règles de saisie ont changé : `python -m outils.construire_demo_web`, puis commiter `docs/`.
+   `python -m outils.construire_demo_web --check` dit si `docs/` est à jour, sans rien écrire (c'est ce que lance la CI).
 4. Ouvrir une demande de fusion (pull request) vers `main`. Le modèle de description rappelle les vérifications.
 5. La CI (GitHub Actions) doit être verte. Une relecture est demandée avant la fusion.
 

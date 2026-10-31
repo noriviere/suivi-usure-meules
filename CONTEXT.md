@@ -29,3 +29,9 @@ _À éviter_ : entrée, ligne, enregistrement
 **Meule défectueuse** :
 Une meule démontée avant usure totale dont le commentaire signale « Meule cassée ou fissurée ».
 _À éviter_ : défaut, meule en défaut
+
+### Démo
+
+**Démo en ligne** :
+Le site public qui montre l'application avec des données entièrement inventées ; les saisies y sont contrôlées comme en vrai mais ne sont enregistrées nulle part.
+_À éviter_ : démo web, site de démo, GitHub Pages
