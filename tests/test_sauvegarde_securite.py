@@ -1,16 +1,12 @@
-"""Copie de sécurité, déconnexion, limiteur, mode strict de l'écriture démo, format des scripts Windows."""
+"""Copie de sécurité, déconnexion, limiteur, format des scripts Windows."""
 import glob
 import os
 import shutil
 import tempfile
 import unittest
 
-from backend import config
 from backend.auth import sessions, utilisateurs
-from backend.services import donnees, listes, reglages, sauvegarde
-from backend.services.ecriture_demo import ajouter_ligne
-from backend.services.regles import traiter
-from outils.donnees_fictives import creer_classeur
+from backend.services import sauvegarde
 from tests.utilitaires import BaseTest
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -39,51 +35,6 @@ class TestSauvegarde(unittest.TestCase):
 
     def test_echec_de_copie_ne_leve_pas(self):
         self.assertIsNone(sauvegarde.sauvegarder(os.path.join(self.dossier, "absent.xlsx"), dossier=self.copies))
-
-
-class TestEcritureDemo(unittest.TestCase):
-    def setUp(self):
-        self.dossier = tempfile.mkdtemp()
-        self.avant = (config.DB_PATH, config.FICHIER, config.DOSSIER_SAUVEGARDES)
-        config.DB_PATH = os.path.join(self.dossier, "demo.sqlite3")
-        config.FICHIER = os.path.join(self.dossier, "demo.xlsx")
-        config.DOSSIER_SAUVEGARDES = os.path.join(self.dossier, "sauvegardes")
-        creer_classeur(config.FICHIER)
-        for cache in (donnees._cache, donnees._cache_t, listes._cache):
-            cache["mtime"] = None
-        reglages._cache.update(cle=None, config=None)
-        self.saisie = {"Matricule monteur": "1001", "Format": "2", "Matière": "I", "Face": "A", "N° article meule": "0101",
-                       "Lot fournisseur N° FA / Beleg": "123", "Date montage": "2026-10-20", "N° de Machine": "s1", "MA5": "Oui",
-                       "Pression d'arrosage": 6, "Vitesse de rotation": 32, "V.Avance": 850, "Hauteur meule initiale, mm": 89,
-                       "Compteur début": 0, "Matricule démonteur": "1002", "Compteur fin": 2500, "Hauteur meule finale, mm": 0}
-
-    def tearDown(self):
-        config.DB_PATH, config.FICHIER, config.DOSSIER_SAUVEGARDES = self.avant
-        shutil.rmtree(self.dossier, ignore_errors=True)
-
-    def test_une_copie_de_securite_est_faite_avant_ecriture(self):
-        propres, erreurs, _ = traiter(self.saisie)
-        self.assertEqual(erreurs, [])
-        ajouter_ligne(propres)
-        copies = glob.glob(os.path.join(config.DOSSIER_SAUVEGARDES, "*.xlsx"))
-        self.assertEqual(len(copies), 1)
-
-    def test_meule_non_finie_copiee_dans_l_onglet_defaut(self):
-        saisie = {**self.saisie, "Hauteur meule finale, mm": 10, "Commentaire": "Meule cassée ou fissurée : fissure"}
-        propres, erreurs, _ = traiter(saisie)
-        self.assertEqual(erreurs, [])
-        ligne, _, info = ajouter_ligne(propres, defaut=True)
-        self.assertEqual(info["onglet"], "Data defaut")
-        self.assertGreater(info["ligne"], 1)
-
-    def test_colonne_inconnue_refusee_sans_ecriture_partielle(self):
-        propres, _, _ = traiter(self.saisie)
-        propres["Colonne qui n'existe pas"] = 1
-        with self.assertRaises(ValueError):
-            ajouter_ligne(propres)
-        for cache in (donnees._cache_t,):
-            cache["mtime"] = None
-        self.assertEqual(len(donnees.tableau()["lignes"]), 320)
 
 
 class TestSecurite(BaseTest):

@@ -16,7 +16,7 @@ import sys
 from backend import config
 from backend.services.controle import anomalies
 from backend.services.donnees import tableau, norm
-from backend.services.valider import CONFIG
+from backend.services.reglages import BASE as CONFIG
 
 MOTIF = "très éloigné"
 
@@ -76,7 +76,8 @@ def main():
 
     import pythoncom
     import win32com.client as win32
-    from backend.services.ecriture import FEUILLE, TABLEAU, FichierOccupe, _onglet_defaut
+    from backend.services.classeur_excel import _onglet_defaut
+    from backend.services.ecriture import FEUILLE, TABLEAU, FichierOccupe
 
     pythoncom.CoInitialize()
     excel = wb = None

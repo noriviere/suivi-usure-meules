@@ -18,7 +18,8 @@ démo (`MEULES_DEMO=1`, voir le README) ou une **copie** du classeur, jamais le 
 
 - Code et noms en français, comme le reste du projet ; noms de variables explicites (pas de lettres seules).
 - Logique métier dans `backend/services/` (testée) ; les routes restent fines.
-- Les écritures de production passent par Excel (COM, `ecriture.py`) ; openpyxl sert à lire, et à écrire **uniquement** en mode démo.
+- Toute écriture passe par `ecriture.ajouter_ligne`, qui porte le déroulé (verrou, copie de sécurité, onglet Data défaut, contrôle des colonnes).
+  Le classeur est manipulé par un adapter : Excel (COM, `classeur_excel.py`) en production, openpyxl (`classeur_openpyxl.py`) **uniquement** en mode démo et dans les tests.
 - Les fichiers `.bat` sont en ASCII avec fins de ligne CRLF.
 - Toute règle de saisie ajoutée côté Python (`valider.py`, `regles.py`) doit être reportée dans `demo_web/demo-api.js` ;
   `tests/test_demo_web.py` signale les écarts (Node.js requis pour ce test).

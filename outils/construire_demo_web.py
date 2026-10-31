@@ -10,7 +10,6 @@ La démo est 100 % statique : elle ne contient AUCUNE donnée réelle. Le script
 Rien n'est écrit nulle part : les saisies de la démo restent dans la page."""
 import json
 import os
-import re
 import shutil
 import sys
 import tempfile

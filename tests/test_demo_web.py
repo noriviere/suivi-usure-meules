@@ -12,7 +12,6 @@ from backend import config
 from backend.services import donnees, listes, reglages
 from backend.services.regles import traiter
 from outils import construire_demo_web
-from outils.donnees_fictives import creer_classeur
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

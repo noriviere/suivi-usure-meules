@@ -1,3 +1,9 @@
+"""Écriture d'une saisie dans le classeur : tout le déroulé (verrou, copie de sécurité, onglet Data défaut,
+contrôle des colonnes, étapes de la barre de chargement, chronométrage) est ici, une seule fois.
+Le classeur lui-même est manipulé par un adapter :
+  - classeur_excel.ClasseurExcel : Excel par COM, en production ;
+  - classeur_openpyxl.ClasseurOpenpyxl : sans Excel, en mode démo et dans les tests."""
+import contextlib
 import os
 import re
 import threading
@@ -5,14 +11,21 @@ import time
 import unicodedata
 
 from .. import config
-from .valider import CONFIG
+from . import sauvegarde
+from .reglages import BASE as CONFIG      # champs.json d'origine
 
 FEUILLE, TABLEAU = "Data", "TableauData"
 VERROU = threading.Lock()              # une seule écriture à la fois
+PAUSE_DEMO_S = 0.35                    # en démo, petite pause par étape pour que la barre de chargement soit visible
 
 
 def norm(texte):
     return " ".join(str(texte).split()).lower() if texte is not None else ""
+
+
+def sans_accent(texte):
+    texte = unicodedata.normalize("NFD", str(texte))
+    return "".join(caractere for caractere in texte if unicodedata.category(caractere) != "Mn").lower().strip()
 
 
 FORCER_TEXTE = {norm(champ["nom"]) for champ in CONFIG["champs"] if champ.get("forcer_texte")}
@@ -22,233 +35,139 @@ class FichierOccupe(Exception):
     pass
 
 
-# Chronométrage de la dernière écriture (secondes par étape), lu par la route puis écrit
-# dans journal_chrono.csv. Modifié seulement sous VERROU : une écriture à la fois.
-MESURES = {}
-_PROGRESSION = None            # fonction appelée au début de chaque étape (pour la barre de chargement)
+class _Suivi:
+    """Annonce les étapes à la barre de chargement et chronomètre chacune (secondes, cumulées)."""
+    def __init__(self, progression):
+        self.progression = progression
+        self.mesures = {}
 
-
-class _Etape:
-    """with _Etape("sauvegarde"): ... ajoute la durée du bloc à MESURES["sauvegarde"]."""
-    def __init__(self, nom):
-        self.nom = nom
-
-    def __enter__(self):
-        if _PROGRESSION:
+    def annoncer(self, nom):
+        if self.progression:
             try:
-                _PROGRESSION(self.nom)
+                self.progression(nom)
             except Exception:
                 pass                  # l'affichage de l'avancement ne doit jamais bloquer l'écriture
-        self.t0 = time.perf_counter()
 
-    def __exit__(self, *_):
-        MESURES[self.nom] = MESURES.get(self.nom, 0.0) + time.perf_counter() - self.t0
-
-
-def _ecrire(cellule, nom, valeur):
-    if isinstance(valeur, str):
-        if norm(nom) in FORCER_TEXTE:
-            cellule.NumberFormat = "@"
-        elif re.fullmatch(r"[1-9]\d*(\.\d+)?|0(\.\d+)?", valeur):
-            valeur = float(valeur) if "." in valeur else int(valeur)
-        else:
-            cellule.NumberFormat = "@"
-    cellule.Value = valeur
-
-
-def _copier_formules(tbl, source, cible):
-    """Recopie dans la ligne `cible` les formules que la ligne `source` a
-    et que `cible` n'a pas reçues d'Excel (références relatives ajustées)."""
-    corps = tbl.DataBodyRange
-    for indice_colonne in range(1, tbl.ListColumns.Count + 1):
-        src, dst = corps.Cells(source, indice_colonne), corps.Cells(cible, indice_colonne)
-        if src.HasFormula and not dst.HasFormula:
-            dst.FormulaR1C1 = src.FormulaR1C1
-
-
-def _copier_formats(tbl, source, cible):
-    """Une nouvelle ligne reçoit le format « par défaut » des colonnes du tableau,
-    qui peut différer de celui des lignes existantes (fonds gris, polices...).
-    On recopie donc le format de la ligne précédente, cellule par cellule.
-    On n'utilise ni le presse-papiers ni « Coller le format », pour ne pas
-    fragmenter les règles de mise en forme conditionnelle."""
-    corps = tbl.DataBodyRange
-    for indice_colonne in range(1, tbl.ListColumns.Count + 1):
-        src, dst = corps.Cells(source, indice_colonne), corps.Cells(cible, indice_colonne)
+    @contextlib.contextmanager
+    def etape(self, nom):
+        self.annoncer(nom)
+        t0 = time.perf_counter()
         try:
-            dst.NumberFormat = src.NumberFormat
-            dst.HorizontalAlignment = src.HorizontalAlignment
-            dst.VerticalAlignment = src.VerticalAlignment
-            dst.WrapText = src.WrapText
-            # fond
-            if src.Interior.Pattern == -4142:              # xlNone : pas de fond
-                dst.Interior.Pattern = -4142
-            else:
-                dst.Interior.Pattern = src.Interior.Pattern
-                dst.Interior.Color = src.Interior.Color
-            # police
-            dst.Font.Name = src.Font.Name
-            dst.Font.Size = src.Font.Size
-            dst.Font.Bold = src.Font.Bold
-            dst.Font.Italic = src.Font.Italic
-            dst.Font.Color = src.Font.Color
-            # bordures (gauche, haut, bas, droite)
-            for bord in (7, 8, 9, 10):
-                bs, bd = src.Borders(bord), dst.Borders(bord)
-                bd.LineStyle = bs.LineStyle
-                if bs.LineStyle != -4142:
-                    bd.Weight = bs.Weight
-                    bd.Color = bs.Color
-        except Exception:
-            pass          # la mise en forme est cosmétique : elle ne doit jamais bloquer une saisie
+            yield
+        finally:
+            self.mesures[nom] = self.mesures.get(nom, 0.0) + time.perf_counter() - t0
 
 
-def _sans_accent(texte):
-    texte = unicodedata.normalize("NFD", str(texte))
-    return "".join(caractere for caractere in texte if unicodedata.category(caractere) != "Mn").lower().strip()
+def _preparer(valeurs):
+    """Un texte qui ressemble à un nombre devient un nombre, sauf pour les champs à garder en texte
+    (matricules, n° article...). Tout ce qui reste texte est écrit comme texte dans le classeur."""
+    prepares = {}
+    for nom, valeur in valeurs.items():
+        if isinstance(valeur, str) and norm(nom) not in FORCER_TEXTE and re.fullmatch(r"[1-9]\d*(\.\d+)?|0(\.\d+)?", valeur):
+            valeur = float(valeur) if "." in valeur else int(valeur)
+        prepares[nom] = valeur
+    return prepares
 
 
-def _onglet_defaut(wb, nom):
-    """Trouve l'onglet sans tenir compte des accents ni des majuscules
-    (« Data défaut » = « data defaut »)."""
-    for ws in wb.Worksheets:
-        if _sans_accent(ws.Name) == _sans_accent(nom):
-            return ws
+def _cibles(colonnes, valeurs, tableau, alias=None, tolerant=False):
+    """Associe chaque champ à une colonne du tableau (nom exact, sinon un de ses alias).
+    Renvoie ({nom de colonne: valeur ou None}, champs sans colonne). Sans `tolerant`, un champ sans colonne bloque tout."""
+    alias = alias or {}
+    par_nom = {norm(colonne): colonne for colonne in colonnes if colonne is not None}
+    cibles, ignores = {}, []
+    for nom, valeur in valeurs.items():
+        colonne = next((par_nom[norm(c)] for c in [nom] + alias.get(nom, []) if norm(c) in par_nom), None)
+        if colonne is None:
+            ignores.append(nom)
+        else:
+            cibles[colonne] = valeur          # une valeur vide n'est pas écrite, mais la colonne reste « saisie »
+    if ignores and not tolerant:
+        raise ValueError(
+            f"Colonnes introuvables dans {tableau} : {ignores}. "
+            f"Ajoutez-les dans la ligne d'en-tête du tableau (même nom) "
+            f"ou corrigez champs.json.")
+    return cibles, ignores
+
+
+def _onglet(onglets, nom):
+    """Trouve l'onglet sans tenir compte des accents ni des majuscules (« Data défaut » = « data defaut »)."""
+    for onglet in onglets:
+        if sans_accent(onglet) == sans_accent(nom):
+            return onglet
     raise ValueError(f"Onglet « {nom} » introuvable dans le classeur.")
 
 
-def _ajouter_dans_tableau(excel, tbl, valeurs, alias=None, tolerant=False):
-    """Ajoute une ligne dans le tableau `tbl`.
-    alias : {nom du champ: [autres noms possibles de la colonne]}.
-    tolerant : les champs sans colonne sont ignorés (et renvoyés) au lieu de bloquer.
-    Renvoie (numéro de ligne Excel, colonnes calculées, champs ignorés)."""
-    alias = alias or {}
-    colonnes = {norm(colonne.Name): colonne.Index for colonne in tbl.ListColumns}
-    cibles, ignores = {}, []
-    for nom in valeurs:
-        for candidat in [nom] + alias.get(nom, []):
-            if norm(candidat) in colonnes:
-                cibles[nom] = colonnes[norm(candidat)]
-                break
+_CLASSEUR = None
+
+
+def _classeur_par_defaut():
+    """L'adapter choisi une fois d'après la configuration : openpyxl en démo, Excel sinon."""
+    global _CLASSEUR
+    if _CLASSEUR is None:
+        if config.MODE_DEMO:
+            from .classeur_openpyxl import ClasseurOpenpyxl
+            _CLASSEUR = ClasseurOpenpyxl(pause_s=PAUSE_DEMO_S)
         else:
-            ignores.append(nom)
-    if ignores and not tolerant:
-        raise ValueError(
-            f"Colonnes introuvables dans {tbl.Name} : {ignores}. "
-            f"Ajoutez-les dans la ligne d'en-tête du tableau (même nom) "
-            f"ou corrigez champs.json.")
-
-    precedente = tbl.ListRows.Count
-    with _Etape("ajout_ligne"):
-        tbl.ListRows.Add()
-    cible = precedente + 1
-    if precedente > 0:
-        with _Etape("formules"):
-            _copier_formules(tbl, precedente, cible)
-        with _Etape("formats"):
-            _copier_formats(tbl, precedente, cible)
-
-    corps = tbl.DataBodyRange
-    with _Etape("valeurs"):
-        for nom, valeur in valeurs.items():
-            if valeur is not None and nom in cibles:
-                _ecrire(corps.Cells(cible, cibles[nom]), nom, valeur)
-    with _Etape("calcul"):
-        excel.Calculate()
-
-    utilises = set(cibles.values())
-    calcules = {}
-    for colonne in tbl.ListColumns:
-        if colonne.Index not in utilises:
-            calcules[colonne.Name.replace("\n", " ")] = corps.Cells(cible, colonne.Index).Text
-    erreurs = [nom for nom, valeur in calcules.items() if str(valeur).startswith("#")]
-    if erreurs:
-        raise ValueError(f"Excel a renvoyé une erreur dans {tbl.Name} : {erreurs}")
-    return corps.Cells(cible, 1).Row, calcules, ignores
+            from .classeur_excel import ClasseurExcel
+            _CLASSEUR = ClasseurExcel()
+    return _CLASSEUR
 
 
-def _ouvrir(excel, chemin, tentatives=6, pause=1.5):
-    """Ouvre le classeur en écriture. S'il est occupé (ouvert par quelqu'un
-    d'autre, donc en lecture seule), on réessaie quelques secondes."""
-    for essai in range(tentatives):
-        wb = None
-        try:
-            wb = excel.Workbooks.Open(chemin, ReadOnly=False, Notify=False)
-            if not wb.ReadOnly:
-                return wb
-            wb.Close(SaveChanges=False)
-        except Exception:
-            if wb is not None:
-                try:
-                    wb.Close(SaveChanges=False)
-                except Exception:
-                    pass
-        if essai < tentatives - 1:
-            time.sleep(pause)
-    raise FichierOccupe("Le fichier est utilisé par quelqu'un d'autre : "
-                        "rien n'a été enregistré. Réessayez dans un instant.")
-
-
-def ajouter_ligne(valeurs, chemin=None, defaut=False, progression=None, mesures=None):
+def ajouter_ligne(valeurs, chemin=None, defaut=False, progression=None, mesures=None, classeur=None):
     """valeurs : dict nom de colonne -> valeur déjà validée.
-    defaut : True = ajouter aussi la ligne dans l'onglet des meules défectueuses.
+    defaut : True = meule défectueuse, la ligne va aussi dans l'onglet Data défaut.
     progression : fonction(nom_etape) appelée à chaque étape ; mesures : dict rempli avec les durées.
-    Renvoie (numéro de ligne Excel, colonnes calculées, infos sur l'onglet défaut)."""
-    if config.MODE_DEMO:                       # démonstration : classeur de fausses données, sans Excel
-        from . import ecriture_demo
-        return ecriture_demo.ajouter_ligne(valeurs, defaut=defaut, progression=progression, mesures=mesures)
+    classeur : adapter à utiliser (par défaut, celui de la configuration).
+    Renvoie (numéro de ligne Excel, colonnes calculées, infos sur l'onglet Data défaut).
+    Jamais d'écriture partielle : tout est vérifié avant d'écrire, et le classeur n'est enregistré qu'à la fin."""
+    classeur = classeur or _classeur_par_defaut()
     chemin = os.path.abspath(chemin or config.FICHIER)
-    import pythoncom
-    import win32com.client as win32
     cfg = CONFIG.get("defaut") or {}
-    global _PROGRESSION
-    if progression:
-        progression("attente")                 # si une autre écriture est en cours, on patiente ici
+    valeurs = _preparer(valeurs)
+    suivi = _Suivi(progression)
+    suivi.annoncer("attente")                 # si une autre écriture est en cours, on patiente ici
     with VERROU:
-        _PROGRESSION = progression
-        MESURES.clear()
-        sauvegarde.sauvegarder(chemin)            # copie de sécurité AVANT toute écriture (n'arrête jamais la saisie si elle échoue)
+        sauvegarde.sauvegarder(chemin)        # copie de sécurité AVANT toute écriture (n'arrête jamais la saisie si elle échoue)
         t_debut = time.perf_counter()
-        pythoncom.CoInitialize()
-        excel = wb = None
+        ouvert = None
         try:
-            with _Etape("lancement_excel"):
-                excel = win32.DispatchEx("Excel.Application")
-                excel.Visible = False
-                excel.DisplayAlerts = False
-            with _Etape("ouverture"):
-                wb = _ouvrir(excel, chemin)
+            ouvert = classeur.ouvrir(chemin, suivi.etape)
 
-            info_defaut = None
-            if defaut:
-                # on vérifie l'onglet AVANT d'écrire quoi que ce soit
-                ws_d = _onglet_defaut(wb, cfg["onglet"])
-                if ws_d.ListObjects.Count == 0:
-                    raise ValueError(f"L'onglet « {ws_d.Name} » ne contient pas de tableau Excel.")
-                tbl_d = ws_d.ListObjects(1)
-
-            tbl = wb.Worksheets(FEUILLE).ListObjects(TABLEAU)
-            ligne = None
-            calcules = {}
+            ecritures = []                    # (tableau, nom affiché, {colonne: valeur}, champs ignorés)
             if not defaut or cfg.get("garder_dans_data", True):
-                ligne, calcules, _ = _ajouter_dans_tableau(excel, tbl, valeurs)
+                tbl = ouvert.tableau_data()
+                ecritures.append((tbl, TABLEAU, *_cibles(ouvert.colonnes(tbl), valeurs, TABLEAU)))
             if defaut:
-                l2, _, ignores = _ajouter_dans_tableau(
-                    excel, tbl_d, valeurs, cfg.get("alias_colonnes"), tolerant=True)
-                info_defaut = {"onglet": ws_d.Name, "ligne": l2, "colonnes_absentes": ignores}
-                ligne = ligne or l2
+                onglet = _onglet(ouvert.onglets(), cfg["onglet"])
+                tbl_d = ouvert.tableau_de(onglet)
+                if tbl_d is None:
+                    raise ValueError(f"L'onglet « {onglet} » ne contient pas de tableau Excel.")
+                ecritures.append((tbl_d, onglet, *_cibles(ouvert.colonnes(tbl_d), valeurs, onglet,
+                                                          cfg.get("alias_colonnes"), tolerant=True)))
 
-            with _Etape("sauvegarde"):
-                wb.Save()                              # seul moment où le fichier est modifié
+            resultats = []
+            for tbl, nom, cibles, ignores in ecritures:
+                numero, calcules = ouvert.ajouter(tbl, cibles, suivi.etape)
+                erreurs = [colonne for colonne, valeur in calcules.items() if str(valeur).startswith("#")]
+                if erreurs:
+                    raise ValueError(f"Excel a renvoyé une erreur dans {nom} : {erreurs}")
+                resultats.append((numero, calcules, ignores))
+
+            with suivi.etape("sauvegarde"):
+                ouvert.enregistrer()          # seul moment où le fichier est modifié
+
+            ligne, calcules, info_defaut = None, {}, None
+            if not defaut or cfg.get("garder_dans_data", True):
+                ligne, calcules, _ = resultats[0]
+            if defaut:
+                l2, _, ignores = resultats[-1]
+                info_defaut = {"onglet": ecritures[-1][1], "ligne": l2, "colonnes_absentes": ignores}
+                ligne = ligne or l2
             return ligne, calcules, info_defaut
         finally:
-            with _Etape("fermeture"):
-                if wb is not None:
-                    wb.Close(SaveChanges=False)        # sans effet si déjà enregistré
-                if excel is not None:
-                    excel.Quit()
-                pythoncom.CoUninitialize()
-            MESURES["total_excel"] = time.perf_counter() - t_debut
-            _PROGRESSION = None
+            with suivi.etape("fermeture"):
+                if ouvert is not None:
+                    ouvert.fermer()
+            suivi.mesures["total_excel"] = time.perf_counter() - t_debut
             if mesures is not None:
-                mesures.update(MESURES)
+                mesures.update(suivi.mesures)
