@@ -23,4 +23,4 @@ Adding or changing an application function: one thread per change, running these
 - Coding rules: `CONTRIBUTING.md` (two are enforced by `tests/test_regles_code.py`).
 - Domain vocabulary: `CONTEXT.md`.
 - Writing an entry to the workbook: `backend/services/ecriture.py` (`ajouter_ligne`), with adapters `classeur_excel.py` (production) and `classeur_openpyxl.py` (demo, tests). Reading it: `donnees.py`, `listes.py`, `reglages.py`.
-- Checks before committing: `git config core.hooksPath .githooks` once per clone (pyflakes + tests).
+- Checks before committing: `.githooks/pre-commit` (pyflakes + tests). Cloud sessions enable it automatically (`.claude/hooks/session-start.sh`); elsewhere run `git config core.hooksPath .githooks` once per clone.
