@@ -17,7 +17,7 @@ Aucune donnée réelle n'est dans ce dépôt : ni classeur, ni base, ni journal,
 | Dans le cloud | Bouton **Code → Codespaces** du dépôt : l'environnement démarre tout seul en mode démo (`.devcontainer/`). |
 
 Le mode démo est activé par la variable d'environnement `MEULES_DEMO=1`. Il n'utilise jamais Excel ni le vrai classeur :
-les écritures passent par `backend/services/ecriture_demo.py` (openpyxl) sur le classeur fictif de `outils/donnees_fictives.py`.
+les écritures passent par l'adapter `backend/services/classeur_openpyxl.py` sur le classeur fictif de `outils/donnees_fictives.py`.
 
 La démo en ligne (`docs/`) est un site statique : `demo_web/demo-api.js` rejoue dans le navigateur les contrôles du serveur.
 Après une modification de la page ou des règles, la régénérer avec `python -m outils.construire_demo_web` et commiter `docs/`

@@ -20,7 +20,9 @@ jobs:
         with:
           node-version: "20"
       - name: Dépendances (openpyxl suffit pour les tests)
-        run: pip install openpyxl
+        run: pip install openpyxl pyflakes
+      - name: Analyse statique (noms non définis, imports oubliés)
+        run: python -m pyflakes backend outils tests scripts
       - name: Tests unitaires
         run: python -m unittest discover -s tests -t . -v
       - name: La démo en ligne (docs/) est à jour

@@ -8,7 +8,8 @@ from openpyxl import load_workbook
 
 from backend import config
 from backend.services import donnees, listes, reglages
-from backend.services.ecriture_demo import ajouter_ligne
+from backend.services.classeur_openpyxl import ClasseurOpenpyxl
+from backend.services.ecriture import ajouter_ligne
 from backend.services.regles import traiter
 from outils.donnees_fictives import creer_classeur
 
@@ -40,7 +41,7 @@ class TestDemo(unittest.TestCase):
         propres, erreurs, _ = traiter(saisie)
         self.assertEqual(erreurs, [])
         etapes = []
-        ligne, calcules, info_defaut = ajouter_ligne(propres, defaut=False, progression=etapes.append, mesures={})
+        ligne, calcules, info_defaut = ajouter_ligne(propres, defaut=False, progression=etapes.append, mesures={}, classeur=ClasseurOpenpyxl())
         self.assertEqual(ligne, 322)
         self.assertIsNone(info_defaut)
         self.assertIn("sauvegarde", etapes)

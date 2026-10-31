@@ -1,7 +1,7 @@
 import math
 import datetime
 
-from .reglages import BASE as CONFIG, config as cfg     # CONFIG = champs.json d'origine ; cfg() = règles en vigueur
+from .reglages import config as cfg     # cfg() = règles en vigueur
 
 
 def _nombre(brut):
